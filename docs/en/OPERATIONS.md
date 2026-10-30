@@ -81,3 +81,12 @@ that none are using it, then remove that directory once. Do not delete `operatio
 SQLite is bundled with the required Node version; no separate database server is needed.
 On POSIX, directory entries are synced after state changes; Windows has weaker power-loss
 guarantees because directory fsync is unavailable through this implementation.
+
+## Container user and permissions
+
+The image defaults to UID/GID 10001:10001. Compose overrides it using APP_UID/APP_GID
+without rebuilding. Set bind-directory ownership on the host: Dockerfile chown does not
+change mounted host directories. File-based secrets must also be readable by the selected
+UID/GID; Compose does not remap ownership for file secrets.
+For a continuous staging service, set ACME_ENVIRONMENT=staging so the service and healthcheck
+use the same environment. Healthcheck can fail until the first certificate is issued.

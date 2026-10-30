@@ -89,7 +89,8 @@ docker compose logs -f
 
 Контейнер работает без root, с read-only rootfs, без Docker socket и повышения привилегий.
 Для секретов из файлов предусмотрен [Compose overlay](examples/compose.secrets.yml).
-После публикации задайте BEGET_ACME_IMAGE, выполните docker compose pull и запускайте
+Для готового образа используйте [Compose без сборки](examples/compose.image.yml),
+задав BEGET_ACME_IMAGE. Порядок запуска описан в [руководстве](docs/ru/OPERATIONS.md#готовый-образ).
 
 ## Результат и диагностика
 

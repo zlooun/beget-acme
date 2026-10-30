@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0-beta.2
+
+- Fix the Linux certificate-permission test to inspect application-created files before replacing them.
+- Include the license and repository metadata in the container image.
+- Clarify container user overrides, bind-mount permissions and file-secret access.
+- Group routine dependency updates separately from major npm upgrades.
+
 ## 0.2.0-beta.1
 
 Initial public beta.
