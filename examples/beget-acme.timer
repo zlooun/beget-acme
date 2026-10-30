@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically check Beget ACME certificates
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=1h
+Unit=beget-acme.service
+
+[Install]
+WantedBy=timers.target

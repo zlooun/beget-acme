@@ -1,0 +1,30 @@
+.env
+.env.*
+!.env.example
+node_modules/
+state/*
+!state/.gitkeep
+output/*
+!output/.gitkeep
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.tmp
+coverage/
+dist/
+dist-test/
+.DS_Store
+
+# Independent service configuration files contain credentials.
+*.env
+
+# Local tooling, generated archives and diagnostic output.
+.codex/
+.idea/
+*.log
+*.tgz
+*.zip
+*.tsbuildinfo
+lint-results.json

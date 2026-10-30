@@ -1,0 +1,34 @@
+services:
+  beget-acme:
+    image: ${BEGET_ACME_IMAGE:?Set a published image reference}
+    user: '${APP_UID:-10001}:${APP_GID:-10001}'
+    init: true
+    stop_grace_period: 90s
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ACME_STATE_DIR: /state
+      ACME_OUTPUT_DIR: /output
+    volumes:
+      - type: bind
+        source: ${STATE_DIR:-./state}
+        target: /state
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CERTIFICATES_DIR:-./output}
+        target: /output
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=32m
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    pids_limit: 80
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

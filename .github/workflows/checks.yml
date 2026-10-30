@@ -1,0 +1,68 @@
+name: checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      # A committed lockfile is a release prerequisite (supply-chain safety).
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Types, lint, formatting, tests and build
+        run: npm run check
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify distributable package
+        run: npm run package:check
+      - name: CLI smoke test
+        run: node dist/cli.js help
+      - name: Build container
+        if: runner.os == 'Linux'
+        run: docker build -t beget-acme:test .
+      - name: Container CLI smoke test
+        if: runner.os == 'Linux'
+        run: docker run --rm beget-acme:test help
+      - name: Non-root writable mounts with read-only filesystem (no network)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          for uid in 10001 12345; do
+            mount_dir="$RUNNER_TEMP/beget-permissions-$uid"
+            mkdir -p "$mount_dir/state" "$mount_dir/output"
+            sudo chown "$uid:$uid" "$mount_dir/state" "$mount_dir/output"
+            docker run --rm --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges --user "$uid:$uid" \
+              --mount "type=bind,src=$mount_dir/state,dst=/state" \
+              --mount "type=bind,src=$mount_dir/output,dst=/output" \
+              --entrypoint node beget-acme:test --input-type=module -e '
+                import assert from "node:assert/strict";
+                import { loadConfig } from "./dist/core/config.js";
+                import { checkDirectories } from "./dist/core/setup.js";
+                import { OperationStore } from "./dist/core/store.js";
+                assert.notEqual(process.getuid(), 0);
+                await checkDirectories(await loadConfig({
+                  ACME_DOMAINS: "example.com",
+                  ACME_STATE_DIR: "/state",
+                  ACME_OUTPUT_DIR: "/output"
+                }));
+                const store = new OperationStore("/state");
+                await store.locked(async () => {
+                  await assert.rejects(new OperationStore("/state").locked(async () => {}),
+                    { code: "OPERATION_LOCKED" });
+                });
+                assert.equal(await store.lockInfo(), null);'
+          done

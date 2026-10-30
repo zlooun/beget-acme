@@ -1,0 +1,17 @@
+[Unit]
+Description=Beget ACME certificate check
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=beget-acme
+Group=beget-acme
+WorkingDirectory=/opt/beget-acme
+ExecStart=/usr/bin/node --env-file=/etc/beget-acme.env /opt/beget-acme/dist/cli.js run --once
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/beget-acme /var/lib/beget-certificates
+TimeoutStartSec=1h
