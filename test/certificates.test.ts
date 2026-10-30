@@ -82,6 +82,13 @@ test('cert publishing checks key match, SAN, permissions and current pointer', a
     assert.equal(status.present, true);
     assert.equal(status.daysLeft > 0, true);
     const keyFile = path.join(output, 'current', 'privkey.pem');
+
+    // Check application-created permissions before the test replaces the key file.
+    if (process.platform !== 'win32') {
+      const stat = await fs.stat(keyFile);
+      assert.equal(stat.mode & 0o777, 0o600);
+    }
+
     await fs.writeFile(keyFile, 'invalid key');
     await assert.rejects(certificateStatus(path.join(output, 'current', 'fullchain.pem')), {
       code: 'CERT_KEY_UNREADABLE',
@@ -100,16 +107,11 @@ test('cert publishing checks key match, SAN, permissions and current pointer', a
       format: 'der',
       type: 'pkcs8',
     }).export({ format: 'pem', type: 'pkcs8' });
-    await fs.writeFile(keyFile, otherKey);
+    await fs.writeFile(keyFile, otherKey, { mode: 0o600 });
     await assert.rejects(certificateStatus(path.join(output, 'current', 'fullchain.pem')), {
       code: 'CERT_KEY_MISMATCH',
     });
     await fs.writeFile(keyFile, key, { mode: 0o600 });
-
-    if (process.platform !== 'win32') {
-      const stat = await fs.stat(path.join(output, 'current', 'privkey.pem'));
-      assert.equal(stat.mode & 0o777, 0o600);
-    }
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
