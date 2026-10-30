@@ -27,6 +27,7 @@ export async function runService(
   },
 ): Promise<void> {
   let restoreDeadline = true;
+  logger.info(`Certificate service started; environment: ${config.environment}; once: ${once}.`);
 
   for (;;) {
     checkRunning(signal);
@@ -47,6 +48,9 @@ export async function runService(
         }
 
         if (!once) {
+          logger.info(
+            `Saved schedule restored; previous result: ${saved.code}; next certificate check at ${new Date(saved.notBefore).toISOString()}. Service is running and waiting.`,
+          );
           await sleep(saved.notBefore - now());
           continue;
         }
