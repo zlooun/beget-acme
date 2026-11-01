@@ -25,6 +25,7 @@
     "doctor": "node --env-file=.env dist/cli.js doctor",
     "status": "node --env-file=.env dist/cli.js status",
     "package:check": "node scripts/check-package.mjs",
+    "test:nginx": "node scripts/check-nginx-example.mjs",
     "coverage": "node scripts/clean.mjs dist-test && tsc -p tsconfig.test.json && node --test --experimental-test-coverage \"dist-test/test/**/*.test.js\""
   },
   "dependencies": {

@@ -26,6 +26,10 @@ collect stderr and monitor failures.
 
 ## Reload and monitoring
 
+For a watcher inside the Nginx container, use the [Nginx Compose guide](NGINX.md).
+It polls the version pointer and reloads only on change. The standalone script below is
+for an external timer; choose one approach, not both.
+
 Run [reload-if-changed.sh](../../examples/reload-if-changed.sh) independently on the TLS host:
 
 ```sh

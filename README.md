@@ -99,6 +99,7 @@ docker compose logs -f
 сертификатов read-only, чтобы current разрешался корректно. Reload настраивается отдельно.
 Ключ по умолчанию 0600; опциональный ACME_PRIVATE_KEY_MODE=0640 требует общей группы и
 подходящих прав каталогов. [Пример Nginx](examples/nginx.conf).
+Для Docker доступен [Nginx со встроенным наблюдателем сертификатов](docs/ru/NGINX.md).
 
 ```sh
 node --env-file=.env dist/cli.js status --staging --check

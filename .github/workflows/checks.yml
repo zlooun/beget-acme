@@ -51,6 +51,13 @@ jobs:
       - name: Container CLI smoke test
         if: runner.os == 'Linux'
         run: docker run --rm beget-acme:test help
+      - name: Nginx watcher integration (disposable certificates)
+        if: runner.os == 'Linux'
+        env:
+          ACME_TEST_IMAGE: beget-acme:test
+        run: |
+          docker pull nginx/nginx-unprivileged:1.31.7-alpine3.24
+          npm run test:nginx
       - name: Non-root writable mounts with read-only filesystem (no network)
         if: runner.os == 'Linux'
         shell: bash

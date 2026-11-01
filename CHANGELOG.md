@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add an optional Nginx Compose overlay, shared-group configuration and in-container certificate watcher.
+- Document setup in English and Russian; test actual TLS reload, retry and process shutdown behavior with disposable containers.
+
 ## 0.2.0
 
 - Publish the first release without a prerelease suffix, including the beta recovery and DNS fixes below.

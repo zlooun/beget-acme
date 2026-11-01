@@ -1,0 +1,52 @@
+# Overlay for compose.image.yml; run with --project-directory . from the repository root.
+services:
+  beget-acme:
+    user: '${APP_UID:-10001}:${TLS_GID:-10002}'
+    environment:
+      ACME_PRIVATE_KEY_MODE: '0640'
+
+  nginx:
+    image: ${NGINX_IMAGE:?Set an nginx-unprivileged Alpine image}
+    user: '${NGINX_UID:-10003}:${NGINX_GID:-10003}'
+    group_add: ['${TLS_GID:-10002}']
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    entrypoint: ['/bin/sh', '/opt/start-with-reload.sh']
+    environment:
+      NGINX_RELOAD_INTERVAL_SECONDS: ${NGINX_RELOAD_INTERVAL_SECONDS:-60}
+    depends_on:
+      beget-acme:
+        condition: service_healthy
+    ports:
+      - '${HTTPS_PORT:-443}:8443'
+    volumes:
+      - type: bind
+        source: ${NGINX_CONFIG_PATH:-./examples/nginx-unprivileged.conf}
+        target: /etc/nginx/conf.d/default.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${NGINX_RELOAD_SCRIPT_PATH:-./examples/start-with-reload.sh}
+        target: /opt/start-with-reload.sh
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CERTIFICATES_DIR:-./output}
+        target: /etc/nginx/certs
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=32m
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

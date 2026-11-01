@@ -82,6 +82,7 @@ Output: output/production/current/fullchain.pem and privkey.pem; staging uses it
 Mount the entire certificate directory read-only into the TLS server so current resolves.
 Reload the server separately. Keys default to 0600; optional 0640 requires a shared group and
 directory access. [Nginx example](../../examples/nginx.conf).
+For Docker, see [Nginx with an internal certificate watcher](NGINX.md).
 
 Use status --staging --check and doctor --staging for test diagnostics. Health checks inspect
 the selected certificate and recovery state, not the web server. Missing certificates during
