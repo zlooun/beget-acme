@@ -102,3 +102,15 @@ test('renewal threshold is optional and retry interval is configurable', async (
 
   await assert.rejects(loadConfig({ ...env, ACME_RETRY_INTERVAL_MS: '59999' }), /integer/);
 });
+
+test('TLS preference TTL defaults to seven days and validates overrides', async () => {
+  assert.equal((await loadConfig(env)).tlsFallbackTtlMs, 604800000);
+  assert.equal(
+    (await loadConfig({ ...env, ACME_TLS_FALLBACK_TTL_MS: '2592000000' })).tlsFallbackTtlMs,
+    2592000000,
+  );
+
+  for (const value of ['0', '-1', '1.5', '59999', '31536000001']) {
+    await assert.rejects(loadConfig({ ...env, ACME_TLS_FALLBACK_TTL_MS: value }), /integer/);
+  }
+});

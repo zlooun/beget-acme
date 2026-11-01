@@ -78,7 +78,9 @@ export class Application {
         clientOptions: {
           fetchImpl: cancellableTransport(
             signal,
-            createAcmeTransport((message) => logger.warn(message), undefined, config.stateDir),
+            createAcmeTransport((message) => logger.warn(message), undefined, config.stateDir, {
+              ttlMs: config.tlsFallbackTtlMs,
+            }),
           ),
           sleep,
         },

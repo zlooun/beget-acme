@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Publish the first release without a prerelease suffix, including the beta recovery and DNS fixes below.
+- Expire successful TLS 1.2 fallback preferences after seven days, configurable with `ACME_TLS_FALLBACK_TTL_MS`.
+- Reattempt normal TLS negotiation on the next request after expiry, without extending the TTL on routine requests.
+- Treat old preferences without timestamps as expired and preserve separate preferences per CA host.
+
 ## 0.2.0-beta.3
 
 - Retry stale recursive DNS answers until the propagation deadline while retaining strict authoritative checks.

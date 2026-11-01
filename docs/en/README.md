@@ -1,7 +1,7 @@
 # Beget ACME
 
 Issue and renew Let's Encrypt certificates through Beget DNS. One instance manages one
-certificate with an exact SAN list of domains, subdomains and wildcards. This project is beta.
+certificate with an exact SAN list of domains, subdomains and wildcards.
 [Русский](../../README.md) · [Configuration](CONFIGURATION.md) · [Security](../../SECURITY.md)
 
 ## Minimal configuration
@@ -100,7 +100,8 @@ An unset ACME_RENEW_BEFORE_DAYS uses one third of actual certificate lifetime; a
 value is used exactly. Renew when remaining lifetime is less than the threshold. A threshold
 longer than certificate lifetime causes renewal on each normal check; choose it deliberately.
 Successful TLS 1.2
-fallback is remembered per CA host under state/tls/.
+fallback is remembered per CA host under state/tls/ for seven days. After expiry,
+the next request allows TLS 1.3 again.
 
 Preserve state/output on upgrades. Before changing scope, stop the service and recover with
 the original configuration. Changed scope requires setup or explicit inline consent again.

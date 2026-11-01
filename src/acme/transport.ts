@@ -119,8 +119,9 @@ export function createAcmeTransport(
   warn: (message: string) => void = () => undefined,
   attempt: Attempt = request,
   stateDir?: string,
+  { ttlMs = 604800000, now = Date.now }: { ttlMs?: number; now?: () => number } = {},
 ): HttpTransport {
-  const pinned = new Set<string>();
+  const pinned = new Map<string, number>();
   const checked = new Set<string>();
 
   return async (url, options) => {
@@ -140,10 +141,18 @@ export function createAcmeTransport(
             'host' in saved &&
             saved.host === host &&
             'maxVersion' in saved &&
-            saved.maxVersion === 'TLSv1.2'
+            saved.maxVersion === 'TLSv1.2' &&
+            'savedAt' in saved &&
+            typeof saved.savedAt === 'number' &&
+            Number.isSafeInteger(saved.savedAt)
           ) {
-            pinned.add(host);
-            warn('ACME ' + host + ': using saved TLS 1.2 preference.');
+            pinned.set(host, saved.savedAt);
+
+            if (now() >= saved.savedAt && now() - saved.savedAt < ttlMs) {
+              warn(
+                `ACME ${host}: using saved TLS 1.2 preference until ${new Date(saved.savedAt + ttlMs).toISOString()}.`,
+              );
+            }
           }
         } catch (error) {
           if (errorCode(error) !== 'ENOENT') {
@@ -155,12 +164,26 @@ export function createAcmeTransport(
       checked.add(host);
     }
 
-    if (pinned.has(host)) {
+    const savedAt = pinned.get(host);
+
+    if (savedAt !== undefined && now() >= savedAt && now() - savedAt < ttlMs) {
       return attempt(url, options, 'TLSv1.2');
     }
 
+    if (savedAt !== undefined) {
+      pinned.delete(host);
+      warn(`ACME ${host}: TLS 1.2 preference expired; trying normal TLS negotiation.`);
+    }
+
     try {
-      return await attempt(url, options, 'TLSv1.3');
+      const response = await attempt(url, options, 'TLSv1.3');
+
+      if (file) {
+        // A stale preference must not outlive successful normal negotiation.
+        await fs.rm(file, { force: true }).catch(() => undefined);
+      }
+
+      return response;
     } catch (error) {
       if (
         options.signal?.aborted ||
@@ -175,18 +198,21 @@ export function createAcmeTransport(
       );
 
       const response = await attempt(url, options, 'TLSv1.2');
-      pinned.add(host);
+      const savedAt = now();
+      pinned.set(host, savedAt);
 
       if (file) {
         try {
-          await atomicWrite(file, JSON.stringify({ host, maxVersion: 'TLSv1.2' }) + '\n');
+          await atomicWrite(file, JSON.stringify({ host, maxVersion: 'TLSv1.2', savedAt }) + '\n');
         } catch {
           // Never replay a successful HTTP write because preference persistence failed.
           warn('ACME TLS 1.2 preference could not be saved; it remains active for this process.');
         }
       }
 
-      warn('ACME ' + host + ': TLS 1.2 succeeded; subsequent requests will use TLS 1.2.');
+      warn(
+        `ACME ${host}: TLS 1.2 succeeded; preference expires at ${new Date(savedAt + ttlMs).toISOString()}.`,
+      );
 
       return response;
     }

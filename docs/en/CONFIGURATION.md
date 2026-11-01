@@ -68,8 +68,13 @@ responses and failures after the handshake do not trigger fallback. Beget retain
 its existing transport. A fallback warning does not prove TLS 1.3 caused the failure.
 
 A successful TLS 1.2 fallback is remembered per ACME host in `state/tls/`, including
-across restarts. Failed fallback is not remembered. To reset, stop the service and
-remove only that host preference file. Staging/production hosts are independent.
+across restarts, for seven days. `ACME_TLS_FALLBACK_TTL_MS` changes this duration
+(default 604800000 ms; range 60000–31536000000 ms). Normal TLS 1.2 requests do not extend it.
+After expiry, the next real request allows TLS 1.2–1.3 again. A new successful fallback
+starts a new TTL; a failed fallback does not. No background probing is performed.
+Existing preference files without a timestamp are treated as expired. Shortening the setting
+also shortens existing preferences; a timestamp in the future is ignored. To reset manually,
+stop the service and remove only that host preference file. Staging/production hosts are independent.
 DNS checks use exactly BEGET_NAMESERVERS (four .com/.pro servers by default), not
 every possible Beget NS. Changing the list requires setup again after recovery.
 Cleanup polling reads DNS repeatedly; it does not repeatedly delete records.

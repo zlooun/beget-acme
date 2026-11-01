@@ -191,6 +191,13 @@ export async function loadConfig(env = process.env) {
     timeoutMs,
     cleanupSettleMs,
     privateKeyMode: privateKeyMode(env.ACME_PRIVATE_KEY_MODE),
+    tlsFallbackTtlMs: integer(
+      env.ACME_TLS_FALLBACK_TTL_MS,
+      604800000,
+      'ACME_TLS_FALLBACK_TTL_MS',
+      60000,
+      31536000000,
+    ),
     renewBeforeDays:
       env.ACME_RENEW_BEFORE_DAYS === undefined || env.ACME_RENEW_BEFORE_DAYS === ''
         ? undefined

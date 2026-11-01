@@ -1,11 +1,90 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AcmeConnectionError, createAcmeTransport } from '../src/acme/transport.js';
 
 const url = 'https://ca.example/directory';
+
+test('TLS fallback TTL expires in a running process and does not slide on ordinary requests', async () => {
+  let time = 1000;
+  let normalWorks = false;
+  const versions: string[] = [];
+  const transport = createAcmeTransport(
+    undefined,
+    async (_url, _options, version) => {
+      versions.push(version);
+
+      if (version === 'TLSv1.3' && !normalWorks) {
+        throw new AcmeConnectionError('ECONNRESET', {});
+      }
+
+      return new Response('{}');
+    },
+    undefined,
+    { ttlMs: 100, now: () => time },
+  );
+  await transport(url, {});
+  time = 1099;
+  await transport(url, {});
+  time = 1100;
+  await transport(url, {});
+  time = 1199;
+  await transport(url, {});
+  time = 1200;
+  normalWorks = true;
+  await transport(url, {});
+  assert.deepEqual(versions, [
+    'TLSv1.3',
+    'TLSv1.2',
+    'TLSv1.2',
+    'TLSv1.3',
+    'TLSv1.2',
+    'TLSv1.2',
+    'TLSv1.3',
+  ]);
+});
+
+test('saved TLS TTL survives restart; old, expired and future preferences do not pin', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tls-expiry-'));
+  const file = path.join(
+    dir,
+    'tls',
+    createHash('sha256').update('ca.example').digest('hex') + '.json',
+  );
+
+  try {
+    await fs.mkdir(path.dirname(file));
+
+    for (const savedAt of [undefined, 900, 1100, 950]) {
+      await fs.writeFile(
+        file,
+        JSON.stringify({ host: 'ca.example', maxVersion: 'TLSv1.2', savedAt }),
+      );
+      const versions: string[] = [];
+      const transport = createAcmeTransport(
+        undefined,
+        async (_url, _options, version) => {
+          versions.push(version);
+
+          return new Response('{}');
+        },
+        dir,
+        { ttlMs: 100, now: () => 1000 },
+      );
+      await transport(url, {});
+      assert.deepEqual(versions, [savedAt === 950 ? 'TLSv1.2' : 'TLSv1.3']);
+
+      if (savedAt !== 950) {
+        await assert.rejects(fs.stat(file), { code: 'ENOENT' });
+      }
+    }
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
 
 test('ACME retries a pre-handshake timeout once with TLS 1.2 and the same deadline', async () => {
   const versions: string[] = [];
