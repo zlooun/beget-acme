@@ -745,7 +745,7 @@ export async function recoverCertificateState(
       const target = await fs.realpath(current);
 
       if (
-        path.dirname(target) !== path.resolve(dir) ||
+        path.dirname(target) !== (await fs.realpath(dir)) ||
         !/^cert-[a-zA-Z0-9-]+$/.test(path.basename(target))
       ) {
         fail(

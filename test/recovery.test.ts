@@ -107,6 +107,23 @@ test('unexpected nonempty current directory is never removed', async () => {
   });
 });
 
+test('an output root reached through a directory alias uses canonical containment', async () => {
+  await fixture(async (dir) => {
+    const alias = `${dir}-alias`;
+    await fs.symlink(dir, alias, process.platform === 'win32' ? 'junction' : 'dir');
+
+    try {
+      assert.equal(
+        await recoverCertificateState(alias, ['example.com'], () => undefined),
+        undefined,
+      );
+      assert((await fs.lstat(path.join(alias, 'current'))).isSymbolicLink());
+    } finally {
+      await fs.unlink(alias);
+    }
+  });
+});
+
 test('Windows replacement rolls back on failed new-link rename', async () => {
   await fixture(async (dir, version) => {
     const temporary = path.join(dir, '.new-link');
