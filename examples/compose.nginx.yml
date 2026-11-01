@@ -14,7 +14,7 @@ services:
     stop_grace_period: 30s
     entrypoint: ['/bin/sh', '/opt/start-with-reload.sh']
     environment:
-      NGINX_RELOAD_INTERVAL_SECONDS: ${NGINX_RELOAD_INTERVAL_SECONDS:-60}
+      NGINX_RELOAD_INTERVAL_SECONDS: ${NGINX_RELOAD_INTERVAL_SECONDS:-3600}
     depends_on:
       beget-acme:
         condition: service_healthy

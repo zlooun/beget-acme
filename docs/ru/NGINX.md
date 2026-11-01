@@ -73,7 +73,7 @@ docker compose --project-directory . --env-file .env -f examples/compose.image.y
 
 ## Как работает наблюдатель
 
-`NGINX_RELOAD_INTERVAL_SECONDS` по умолчанию равен 60; допустимы 1–86400 без ведущих нулей.
+`NGINX_RELOAD_INTERVAL_SECONDS` по умолчанию равен 3600 (1 час); допустимы 1–86400 без ведущих нулей.
 Скрипт запоминает цель ссылки `current` и запускает штатный entrypoint образа.
 На каждом интервале сравнивает цель ссылки. Если версия та же — нет ни логов, ни reload.
 При смене версии выполняются `nginx -t` и затем `nginx -s reload`. Ошибка проверки или

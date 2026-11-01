@@ -2,7 +2,7 @@
 # Container entrypoint for nginx-unprivileged; run through /bin/sh.
 set -u
 
-interval=${NGINX_RELOAD_INTERVAL_SECONDS:-60}
+interval=${NGINX_RELOAD_INTERVAL_SECONDS:-3600}
 certificate_link=${NGINX_CERTIFICATE_LINK:-/etc/nginx/certs/production/current}
 
 case "$interval" in

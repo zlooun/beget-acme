@@ -72,7 +72,7 @@ Do not run a second issuance container concurrently with the continuous service.
 
 ## Watcher behavior
 
-`NGINX_RELOAD_INTERVAL_SECONDS` defaults to 60; accepted values are 1–86400 without leading
+`NGINX_RELOAD_INTERVAL_SECONDS` defaults to 3600 (1 hour); accepted values are 1–86400 without leading
 zeros. The script captures the `current` link and runs the image's original entrypoint.
 On each interval it compares the link target. Unchanged versions produce no logs and no reload.
 Changed versions trigger `nginx -t`, then `nginx -s reload`. Failed checks or signal commands
