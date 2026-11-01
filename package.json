@@ -29,7 +29,7 @@
     "coverage": "node scripts/clean.mjs dist-test && tsc -p tsconfig.test.json && node --test --experimental-test-coverage \"dist-test/test/**/*.test.js\""
   },
   "dependencies": {
-    "@peculiar/x509": "2.2.0",
+    "@peculiar/x509": "3.1.0",
     "reflect-metadata": "0.2.2"
   },
   "devDependencies": {
