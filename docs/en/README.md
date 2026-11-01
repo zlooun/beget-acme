@@ -85,18 +85,34 @@ docker compose run --rm beget-acme run --staging --once --accept-dns-replacement
 Wait for successful issuance and DNS cleanup. If the command fails, see
 [troubleshooting](#troubleshooting) before continuing.
 
-**4. Issue a production certificate and enable automatic renewal:**
+**4. Start the production service.** After inspecting the DNS names in the panel, add to `.env`:
+
+```dotenv
+ACME_ACCEPT_DNS_REPLACEMENT=yes
+```
+
+Then start the container:
 
 ```sh
-docker compose run --rm beget-acme run --once --accept-dns-replacement
 docker compose up -d
 docker compose logs -f beget-acme
 ```
 
-Proceed to `up -d` after issuance completes successfully. Approval is saved separately
-for staging and production, so the persistent service no longer needs the flag. Pressing
-`Ctrl+C` while following logs does not stop the container. Do not run `run --once` alongside
-the persistent service.
+The image runs `run` by default: it issues a missing certificate and stays running to renew
+automatically. No preliminary `run --once` or separate `setup` is required. The environment
+variable authorizes DNS replacement without interactive input. Pressing `Ctrl+C` while
+following logs does not stop the container.
+
+**Optional alternative:** to wait for the first production issuance in the terminal without
+setting this variable, run:
+
+```sh
+docker compose run --rm beget-acme run --once --accept-dns-replacement
+```
+
+After successful completion, start `docker compose up -d`. Production approval has been saved,
+so the service no longer needs the consent flag or variable. Do not run `run --once`
+alongside the persistent service.
 
 ### Local installation
 
