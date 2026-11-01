@@ -14,7 +14,7 @@ import { AppError, fail, messageFor } from './errors.js';
 import {
   certificateStatus,
   saveCertificate,
-  recoverCertificatePublication,
+  recoverCertificateState,
   certificateNamesMatch,
 } from './store.js';
 import {
@@ -205,7 +205,7 @@ export class Application {
         : 'No pending DNS journal.',
     );
     const lock = await this.store.lockInfo();
-    const active = await this.store.lockIsActive();
+    const active = lock?.status === 'active';
     healthy &&= (!journal && !lock) || active;
     const lastCheck = await this.store.retryState();
     healthy &&= !lastCheck || lastCheck.code === 'OK';
@@ -245,10 +245,6 @@ export class Application {
       );
     }
 
-    for (const target of targets) {
-      await this.assertTargetEmpty(target.name);
-    }
-
     const entries: Journal[] = targets.map((target) => ({ ...target, phase: 'planned' }));
 
     const createdAt = new Date().toISOString();
@@ -272,6 +268,8 @@ export class Application {
 
     for (const entry of entries) {
       checkRunning(this.signal);
+      // Recheck each name immediately before its mutation, after order creation.
+      await this.assertTargetEmpty(entry.name);
       // Persist intent before sending: even a failed response can hide a completed write.
       entry.phase = 'prepared';
       await persist();
@@ -373,7 +371,7 @@ export class Application {
     this.requireBeget();
     await this.requireBeget().assertRootZone(zoneForName(c, name));
     const expire = Date.now() + c.timeoutMs;
-    let action = null;
+    let action: 'delete' | 'verify-empty' | null = null;
 
     while (Date.now() < expire) {
       const rows = await this.query(journal.name, c.nameservers, PREFLIGHT_TYPES);
@@ -479,8 +477,8 @@ export class Application {
       if (journal.phase !== 'cleanup-requested' && journal.phase !== 'cleanup-started') {
         fail(
           'DNS_MUTATION_UNCERTAIN',
-          'TXT is not visible, but deletion was not confirmed by this journal.',
-          'Keep the journal. Inspect the Beget panel and wait for DNS convergence; do not blindly retry issuance.',
+          `Operator inspection required: ${name}; phase ${journal.phase ?? 'unknown'}; operation created ${journal.createdAt ?? 'at an unknown time'}. TXT is absent but publication outcome is uncertain.`,
+          `Keep the journal and original configuration. Inspect every journal name in Beget, run doctor and cleanup${c.environment === 'staging' ? ' --staging' : ''}. Only after panel inspection and DNS convergence, use journal-clear${c.environment === 'staging' ? ' --staging' : ''} with ACME_CONFIRM_JOURNAL_CLEAR listing ALL journal names and ACME_JOURNAL_CLEAR_REASON describing the inspection. Do not delete state files.`,
         );
       }
 
@@ -513,7 +511,9 @@ export class Application {
       fail('ACME_ENVIRONMENT_INVALID', 'Use `staging` or `production`.');
     }
 
-    await recoverCertificatePublication(path.join(c.outputDir, environment), c.domains);
+    await recoverCertificateState(path.join(c.outputDir, environment), c.domains, (message) =>
+      this.logger.warn(message),
+    );
 
     if (environment === 'production' && !c.canProduction) {
       fail(
@@ -729,9 +729,10 @@ export class Application {
       fail('ACME_ENVIRONMENT_INVALID', 'Use staging or production.');
     }
 
-    const restored = await recoverCertificatePublication(
+    const restored = await recoverCertificateState(
       path.join(this.config.outputDir, environment),
       this.config.domains,
+      (message) => this.logger.warn(message),
     );
 
     if (restored) {

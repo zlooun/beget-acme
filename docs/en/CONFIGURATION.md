@@ -83,3 +83,7 @@ managed zones, empty DNS and recovery guards. Matching approval is reused withou
 setup. Corrupt approval is not automatically overwritten. Pending recovery prevents changes
 to the approved scope. Existing saved setup still works without the flag. Use run for initial
 issuance; schedule requires an existing production certificate.
+
+Read-only diagnostics remain available when saved setup is missing, changed or corrupt;
+write commands remain gated. `status --check` treats invalid approval as unhealthy.
+JSON error events include stable top-level `code` and optional `hint` fields.

@@ -51,6 +51,8 @@ export const PREFLIGHT_TYPES = Object.freeze([
   'NS',
   'SRV',
   'CAA',
+  'NAPTR',
+  'PTR',
 ]);
 const EMPTY_CODES = new Set(['ENOTFOUND', 'ENODATA']);
 
@@ -266,7 +268,17 @@ export async function waitForTXT({
       if (recursive.length) {
         serverGroup = 'recursive';
         const rec = await query(name, recursive, types);
-        assertExactTXT(rec, expected, { permittedStale });
+
+        try {
+          assertExactTXT(rec, expected, { permittedStale });
+        } catch (error) {
+          // Recursive caches are propagation evidence, never authority to mutate DNS.
+          if (['DNS_FOREIGN_TXT', 'DNS_FOREIGN_RECORD'].includes(errorCode(error) ?? '')) {
+            fail('DNS_NOT_PROPAGATED', 'Recursive cache still differs from the expected records.');
+          }
+
+          throw error;
+        }
       }
 
       checkRunning(signal);

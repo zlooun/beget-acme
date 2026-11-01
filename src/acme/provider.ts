@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fail } from '../core/errors.js';
 import { AcmeClient, DIRECTORIES } from './client.js';
 import { createAccountKey, createCertificateRequest, sha256 } from './crypto.js';
+import { readAccountKey } from './account-key.js';
 
 /** DNS orchestration depends only on createOrder/challenges/validate/finalize. */
 export class AcmeClientProvider implements AcmeProvider {
@@ -35,7 +36,7 @@ export class AcmeClientProvider implements AcmeProvider {
     let accountKey: string | Buffer;
 
     try {
-      accountKey = await fs.readFile(accountFile);
+      accountKey = await readAccountKey(accountFile);
     } catch (error) {
       if (errorCode(error) !== 'ENOENT') {
         throw error;
@@ -55,7 +56,7 @@ export class AcmeClientProvider implements AcmeProvider {
           throw cause;
         }
 
-        accountKey = await fs.readFile(accountFile);
+        accountKey = await readAccountKey(accountFile);
       } finally {
         await fs.rm(temporaryKey, { force: true });
       }

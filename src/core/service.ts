@@ -69,7 +69,11 @@ export async function runService(
       }
 
       next = now() + Math.max(config.retryIntervalMs, known.retryAfterMs ?? 0);
-      logger.error(`Certificate check failed [${known.code}]: ${known.message}`);
+      logger.error(`Certificate check failed [${known.code}]: ${known.message}`, {
+        code: known.code,
+        hint: known.hint,
+        environment: config.environment,
+      });
 
       if (known.hint) {
         logger.error(`Next step: ${known.hint}`);

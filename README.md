@@ -2,7 +2,7 @@
 
 Выпуск и автоматическое продление сертификатов Let's Encrypt через DNS API Beget.
 Один экземпляр обслуживает один сертификат с точным списком SAN: домены, поддомены и wildcard.
-Проект beta. [English](docs/en/README.md) · [Настройки](docs/ru/CONFIGURATION.md) · [Безопасность](SECURITY.md)
+Проект beta. [English](docs/en/README.md) · [Настройки](docs/ru/CONFIGURATION.md) · [Эксплуатация и восстановление](docs/ru/OPERATIONS.md) · [Безопасность](SECURITY.md)
 
 ## Минимальная конфигурация
 

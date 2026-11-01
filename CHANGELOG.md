@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0-beta.3
+
+- Retry stale recursive DNS answers until the propagation deadline while retaining strict authoritative checks.
+- Repeat DNS preflight immediately before each name's mutation and explain ambiguous recovery with actionable diagnostics.
+- Allow read-only diagnostics with invalid setup approval without granting write access.
+- Restore broken certificate pointers from validated local versions; preserve damaged markers and refuse replacement on access errors.
+- Preserve a Windows pointer backup during replacement and roll it back on failed rename.
+- Bound Beget response bodies and validate existing account-key files, permissions and RSA strength.
+- Reject overlong computed challenge names, check NAPTR/PTR during preflight, and expose structured JSON error codes/hints.
+- Expand recovery, boundary and process-death tests; document DNS scope, shared certificate access and recovery limits.
+
 ## 0.2.0-beta.2
 
 - Fix the Linux certificate-permission test to inspect application-created files before replacing them.

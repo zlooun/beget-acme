@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
+    timeout-minutes: 25
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -33,6 +34,20 @@ jobs:
       - name: Build container
         if: runner.os == 'Linux'
         run: docker build -t beget-acme:test .
+      - name: Linux regressions as non-root (no network)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          docker build --target build -t beget-acme:test-build .
+          docker run --rm --network none --user 12345:12345 --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            --mount "type=bind,src=$PWD/test,dst=/app/test,readonly" \
+            --mount "type=bind,src=$PWD/tsconfig.test.json,dst=/app/tsconfig.test.json,readonly" \
+            beget-acme:test-build sh -c '
+              cp package.json /tmp/package.json &&
+              ln -s /app/node_modules /tmp/node_modules &&
+              node_modules/.bin/tsc -p tsconfig.test.json --outDir /tmp/dist-test &&
+              node --test /tmp/dist-test/test/*.test.js'
       - name: Container CLI smoke test
         if: runner.os == 'Linux'
         run: docker run --rm beget-acme:test help

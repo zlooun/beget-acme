@@ -9,7 +9,7 @@ import os from 'node:os';
 import { SubjectAlternativeNameExtension, X509CertificateGenerator } from '@peculiar/x509';
 import { Application } from '../src/core/application.js';
 import { loadConfig } from '../src/core/config.js';
-import { OperationStore } from '../src/core/store.js';
+import { OperationStore, saveCertificate } from '../src/core/store.js';
 import { AppError } from '../src/core/errors.js';
 import type { BegetProvider } from '../src/providers/beget.js';
 import type { DnsQuery } from '../src/dns/verify.js';
@@ -143,13 +143,12 @@ async function certificate(dir: string, identities = domains, lifetime = 10) {
     },
     crypto,
   );
-  const current = path.join(dir, 'output', 'production', 'current');
-  await fs.mkdir(current, { recursive: true });
-  await fs.writeFile(path.join(current, 'fullchain.pem'), cert.toString('pem'));
   const exported = Buffer.from(await crypto.subtle.exportKey('pkcs8', keys.privateKey));
-  await fs.writeFile(
-    path.join(current, 'privkey.pem'),
+  await saveCertificate(
     '-----BEGIN PRIVATE KEY-----\n' + exported.toString('base64') + '\n-----END PRIVATE KEY-----\n',
+    cert.toString('pem'),
+    path.join(dir, 'output', 'production'),
+    identities,
   );
 }
 
@@ -194,6 +193,34 @@ test('second-name write failure keeps both entries and supports later recovery',
     await store.locked(() => app.cleanup());
     assert.equal(await store.journal(), null);
     assert.equal(writes.length, 4);
+  });
+});
+
+test('partial recovery preserves prepared empty entry and explains operator action', async () => {
+  await fixture(async ({ app, store, records, writes }) => {
+    await store.writeJournal({
+      name: names[0]!,
+      values: ['token-first-1234'],
+      phase: 'published',
+      version: 2,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      entries: [{ name: names[1]!, values: ['token-second-1234'], phase: 'prepared' }],
+    });
+    records.set(names[0]!, ['token-first-1234']);
+    await assert.rejects(
+      store.locked(() => app.cleanup()),
+      (error) => {
+        assert(error instanceof AppError);
+        assert.equal(error.code, 'DNS_MUTATION_UNCERTAIN');
+        assert(error.message.includes(names[1]!));
+        assert(error.hint?.includes('journal-clear'));
+
+        return true;
+      },
+    );
+    assert.equal(writes.length, 1);
+    assert.equal((await store.requireJournal()).name, names[1]);
+    assert.equal((await store.requireJournal()).phase, 'prepared');
   });
 });
 

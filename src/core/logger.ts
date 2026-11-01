@@ -24,7 +24,24 @@ export function createLogger({
 
     if (json) {
       destination.log(
-        JSON.stringify({ timestamp: time, level, message, ...(extra ? { details: extra } : {}) }),
+        JSON.stringify({
+          timestamp: time,
+          level,
+          message,
+          ...(extra ? { details: extra } : {}),
+          ...(typeof extra === 'object' &&
+          extra !== null &&
+          'code' in extra &&
+          typeof extra.code === 'string'
+            ? { code: extra.code }
+            : {}),
+          ...(typeof extra === 'object' &&
+          extra !== null &&
+          'hint' in extra &&
+          typeof extra.hint === 'string'
+            ? { hint: extra.hint }
+            : {}),
+        }),
       );
 
       return;

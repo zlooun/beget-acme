@@ -6,6 +6,65 @@ import { queryServers, assertEmpty, assertExactTXT, waitForTXT } from '../src/dn
 
 const row = (server: string, records: DnsRecords) => ({ server, records });
 const silent = { info() {}, warn() {}, error() {} };
+
+for (const converge of [true, false]) {
+  test(`old recursive tokens are propagation lag (converge: ${converge})`, async () => {
+    let now = 0;
+    const work = waitForTXT({
+      name: '_acme-challenge.example.com',
+      authoritative: ['ns'],
+      recursive: ['cache'],
+      expected: ['new-token-1234'],
+      timeoutMs: 100,
+      intervalMs: 10,
+      logger: silent,
+      now: () => now,
+      sleep: async (ms) => {
+        now += ms;
+      },
+      query: async (_, servers) =>
+        servers.map((server) =>
+          row(server, {
+            TXT:
+              server === 'ns' || (converge && now >= 20)
+                ? ['new-token-1234']
+                : ['old-staging-token'],
+          }),
+        ),
+    });
+
+    if (!converge) {
+      await assert.rejects(work, { code: 'DNS_PROPAGATION_TIMEOUT' });
+
+      return;
+    }
+
+    await work;
+    assert.equal(now, 20);
+  });
+}
+
+test('foreign authoritative TXT still fails immediately without querying caches', async () => {
+  await assert.rejects(
+    waitForTXT({
+      name: '_acme-challenge.example.com',
+      authoritative: ['ns'],
+      recursive: ['cache'],
+      expected: ['new-token-1234'],
+      timeoutMs: 100,
+      logger: silent,
+      query: async (_, servers) => {
+        assert.deepEqual(servers, ['ns']);
+
+        return [row('ns', { TXT: ['foreign-token'] })];
+      },
+      sleep: async () => {
+        assert.fail('Must not retry foreign authoritative records');
+      },
+    }),
+    { code: 'DNS_FOREIGN_TXT' },
+  );
+});
 test('DNS preflight stops when any record is visible', () => {
   assert.doesNotThrow(() => assertEmpty([row('ns1', { A: [], TXT: [] })]));
   assert.throws(() => assertEmpty([row('ns1', { A: ['127.0.0.1'] })]), /reports 1 A/);

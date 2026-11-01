@@ -6,6 +6,7 @@ import path from 'node:path';
 import { loadConfig, authorizeWrite } from '../src/core/config.js';
 import {
   approvedConfig,
+  diagnosticConfig,
   checkDirectories,
   discoverZones,
   setup,
@@ -19,6 +20,33 @@ import type { DnsQuery } from '../src/dns/verify.js';
 const logger = { info() {}, warn() {}, error() {} };
 const empty: DnsQuery = async (_name, servers) =>
   servers.map((server) => ({ server, records: {} }));
+
+test('changed approval permits read-only diagnosis but never grants write permission', async () => {
+  await fixture(async ({ config, provider }) => {
+    await setup(config, { logger, provider, dnsQuery: empty, confirm: async () => true });
+    const changed = { ...config, username: 'different-login' };
+    const result = await diagnosticConfig(changed, logger);
+    assert.equal(result.approvalReady, false);
+    assert.equal(result.config.canWrite, false);
+    assert.throws(() => authorizeWrite(result.config, config.challenges[0]!), {
+      code: 'DNS_WRITE_DISABLED',
+    });
+    await assert.rejects(approvedConfig(changed), { code: 'SETUP_CHANGED' });
+  });
+});
+
+test('corrupt approval stays untouched during read-only diagnosis', async () => {
+  await fixture(async ({ config, provider }) => {
+    await setup(config, { logger, provider, dnsQuery: empty, confirm: async () => true });
+    const file = path.join(config.stateDir, 'setup.json');
+    await fs.writeFile(file, '{invalid');
+    const result = await diagnosticConfig(config, logger);
+    assert.equal(result.approvalReady, false);
+    assert.equal(result.config.canWrite, false);
+    assert.equal(await fs.readFile(file, 'utf8'), '{invalid');
+    await assert.rejects(approvedConfig(config));
+  });
+});
 
 async function fixture(work: (value: Awaited<ReturnType<typeof context>>) => Promise<void>) {
   const value = await context();

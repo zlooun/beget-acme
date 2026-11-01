@@ -105,5 +105,15 @@ not proof that an earlier unacknowledged publication will never appear. Cleanup 
 all configured authoritative servers for sustained absence, without relying on recursive
 cache expiry. Recovery never authorizes deletion of unknown records.
 
-Pending certificate publication is resumed only from a recorded version whose key, SANs
-and validity pass validation. Preserve the output directory alongside state during recovery.
+Certificate recovery validates regular local version files, matching keys, exact SANs and
+validity within the selected environment. It can restore a missing/broken pointer without a
+marker. An invalid marker is preserved in quarantine only when a valid local pair exists;
+otherwise recovery fails closed. Access errors never trigger replacement. These checks do not
+authenticate arbitrary files placed by an attacker with output write access: protect that
+directory and restore only trusted backups. Preserve output alongside state during recovery.
+
+Existing account keys must be regular files, at most 64 KiB, with owner-only permissions on
+POSIX; symbolic links and RSA keys below 2048 bits are refused. Windows access is controlled
+by ACLs. Invalid keys are never silently replaced. Beget response bodies are bounded to 1 MiB
+and share the request deadline. DNS preflight also checks NAPTR and PTR, but cannot enumerate
+every possible provider record type: panel inspection remains necessary.

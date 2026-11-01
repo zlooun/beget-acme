@@ -58,7 +58,12 @@ certificate verification. Validate corporate networking separately against stagi
   without waiting for recursive caches. The default stability interval is 45 seconds.
 - A complete certificate pair and a pending publication marker are saved before switching
   `current`. The next issuance check validates the pair and resumes that switch without ordering
-  another certificate. Partial versions without a marker are ignored.
+  another certificate. If `current` is missing or broken, recovery also scans complete local
+  `cert-*` directories in that environment, checks exact SANs, validity and matching keys,
+  and selects the newest valid pair. Incomplete versions are ignored. An invalid marker is
+  archived only if an independently validated pair exists; otherwise recovery stops.
+  Unexpected nonempty directories at `current` are preserved and require inspection.
+  Access-denied errors never authorize replacement or a new order.
 - Account keys are flushed to a temporary file and published without replacing an existing key.
   Interrupted temporary files are unused; they are not treated as account keys.
 - The operation lock is an open SQLite transaction held through `node:sqlite`. The OS releases
@@ -90,3 +95,47 @@ change mounted host directories. File-based secrets must also be readable by the
 UID/GID; Compose does not remap ownership for file secrets.
 For a continuous staging service, set ACME_ENVIRONMENT=staging so the service and healthcheck
 use the same environment. Healthcheck can fail until the first certificate is issued.
+
+## DNS preflight and delayed caches
+
+The apex `example.com` and `*.example.com` share `_acme-challenge.example.com`.
+`api.example.com` and `*.api.example.com` share `_acme-challenge.api.example.com`.
+In the Beget DNS panel, inspect each exact name, not the entire parent zone. Do not delete
+unrelated records to make preflight pass. Avoid concurrent clients using these names.
+`getData inventory unavailable` means the API inventory could not be read, not that it was empty.
+Panel inspection is therefore part of explicit replacement consent.
+
+Before CA validation, all configured authoritative servers must expose exactly the owned TXT set.
+Unexpected authoritative data blocks the operation. Old recursive answers are treated as cache
+propagation and retried until the DNS deadline. Cleanup waits only for stable absence on
+configured authoritative servers. These checks cannot prove which cached answer the CA will receive.
+
+## Read-only diagnosis and ambiguous recovery
+
+`status`, `doctor` and `probe` work with missing, changed or corrupt setup approval. They warn
+about the problem and do not grant write permission. `status --check` returns nonzero for invalid
+approval. JSON error events expose `code` and optional `hint` fields.
+Use the original approved configuration for `cleanup`; inspecting a changed configuration does
+not authorize cleanup of the old scope.
+
+`DNS_MUTATION_UNCERTAIN` reports the name, phase and timestamp. Empty DNS cannot prove that
+an unacknowledged Beget request will not appear later. Preserve state, inspect authoritative DNS
+and the panel, and retry cleanup. If uncertainty persists, follow `journal-clear` in
+[configuration](CONFIGURATION.md) with the exact journal names and an inspection reason.
+This is an explicit operator override, not timeout-based automatic journal deletion.
+
+## Sharing certificates with a TLS container
+
+Use a dedicated shared group. Give the ACME process that primary GID and add it to the TLS
+container using `group_add`. Set `ACME_PRIVATE_KEY_MODE=0640`; this affects new keys only.
+Existing keys need an explicit permission adjustment. Allow group traversal/read access to
+output directories (including future versions) and read access to the certificate/key.
+NAS ACLs must permit traversal of the mounted root too. Keep state and account keys private.
+
+Mount the entire output tree read-only into the TLS container, not just `current`, so pointer
+switches remain visible. Use `production/current/fullchain.pem` and
+`production/current/privkey.pem` relative to that mount. Test reads using the actual container
+UID/groups without printing keys. Copy backups preserving symlinks, ownership and permissions;
+graphical file managers can turn `current` into an empty directory.
+Reload remains the TLS server's responsibility. A successful reload signal alone does not prove
+which certificate is served: verify the live endpoint after replacement.

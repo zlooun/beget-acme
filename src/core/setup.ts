@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Config } from './config.js';
 import type { BegetProvider } from '../providers/beget.js';
 import { domainName, requireCredentials } from './config.js';
-import { AppError, fail } from './errors.js';
+import { AppError, fail, messageFor } from './errors.js';
 import { errorCode, object, strings } from './validation.js';
 import { atomicWrite, OperationStore } from './store.js';
 import { Application } from './application.js';
@@ -101,6 +101,24 @@ export async function approvedConfig(config: Config, required = false): Promise<
     confirmedChallenges: permitted ? [...config.challenges] : [],
     canProduction: saved.environments.includes('production'),
   };
+}
+
+/** Diagnostics remain available even when saved write approval needs repair. */
+export async function diagnosticConfig(config: Config, logger: Logger) {
+  try {
+    return { config: await approvedConfig(config, true), approvalReady: true };
+  } catch (error) {
+    const known = messageFor(error);
+    logger.warn(`Saved approval is unavailable [${known.code}]: ${known.message}`, {
+      code: known.code,
+      hint: known.hint,
+    });
+
+    return {
+      config: { ...config, canWrite: false, canProduction: false, confirmedChallenges: [] },
+      approvalReady: false,
+    };
+  }
 }
 
 /** Try explicit DNS ancestors, accepting a zone only after the provider confirms control. */
@@ -292,6 +310,10 @@ export async function prepareServiceConfig(
     ) {
       throw error;
     }
+
+    options.logger.warn(
+      `Explicit DNS consent will approve ${config.environment} for ${config.challenges.join(', ')} (${error.code}). Pending recovery still blocks approval changes.`,
+    );
   }
 
   await setup(config, { ...options, confirm: () => Promise.resolve(true) });

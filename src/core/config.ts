@@ -141,6 +141,10 @@ export async function loadConfig(env = process.env) {
     ...new Set(domains.map((name) => `_acme-challenge.${name.replace(/^\*\./, '')}`)),
   ];
 
+  if (challenges.some((name) => name.length > 253)) {
+    fail('CONFIG_CHALLENGE_NAME', 'Computed _acme-challenge name exceeds 253 characters.');
+  }
+
   if (zones.length) {
     for (const name of challenges) {
       zoneForName({ zones }, name);

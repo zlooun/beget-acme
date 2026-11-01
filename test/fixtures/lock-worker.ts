@@ -21,9 +21,14 @@ try {
     }
 
     process.send?.('ready');
-    await new Promise<void>(() => {
-      // Keep the fixture alive until the parent forcibly terminates it.
-      setInterval(() => undefined, 1000);
+    await new Promise<void>((resolve) => {
+      // Retain the pending continuation, including its database handle, until killed.
+      // An unrelated timer does not root an otherwise unreachable pending promise.
+      setInterval(() => {
+        if (!process.connected) {
+          resolve();
+        }
+      }, 1000);
     });
   });
 } catch (error) {

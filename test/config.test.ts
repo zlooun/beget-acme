@@ -31,11 +31,15 @@ test('DNS writes require an exact name, explicit confirmation and opt-in', async
   const writable = await loadConfig({ ...env, ACME_ACCEPT_DNS_REPLACEMENT: 'yes' });
   assert.doesNotThrow(() => authorizeWrite(writable, writable.challenges[0]!));
   assert.throws(() => authorizeWrite(writable, 'mydomain.net'), /outside/);
-  const approved = await loadConfig({
-    ...env,
-    ACME_ACCEPT_DNS_REPLACEMENT: 'yes',
-  });
-  assert.doesNotThrow(() => authorizeWrite(approved, approved.challenges[0]!));
+  assert.throws(
+    () => authorizeWrite({ ...writable, confirmedChallenges: [] }, writable.challenges[0]!),
+    { code: 'DNS_CONFIRMATION_REQUIRED' },
+  );
+});
+
+test('challenge prefix must fit within the DNS name length limit', async () => {
+  const domain = [63, 63, 63, 50].map((length) => 'a'.repeat(length)).join('.');
+  await assert.rejects(loadConfig({ ACME_DOMAINS: domain }), { code: 'CONFIG_CHALLENGE_NAME' });
 });
 
 test('file-based secrets trim only trailing newlines', async () => {

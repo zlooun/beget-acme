@@ -101,13 +101,19 @@ for (const phase of [
           { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] },
         );
         const exited = once(child, 'exit');
+        let childErrors = '';
+        child.stderr?.on('data', (chunk: Buffer) => {
+          childErrors += chunk.toString();
+        });
 
         try {
           const message = await once(child, 'message', { signal: AbortSignal.timeout(10000) });
           assert.equal(message[0], 'ready');
           await assert.rejects(
             new OperationStore(store.dir).locked(async () => {
-              assert.fail('Concurrent operation must never enter');
+              assert.fail(
+                `Concurrent operation must never enter; child exit=${child.exitCode}; stderr=${childErrors}`,
+              );
             }),
             { code: 'OPERATION_LOCKED' },
           );

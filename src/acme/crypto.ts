@@ -40,8 +40,8 @@ export function accountSigner(pem: string | Buffer) {
     }
 
     if (exported.kty === 'RSA') {
-      if (!exported.e || !exported.n) {
-        fail('ACME_ACCOUNT_KEY', 'Invalid RSA account key.');
+      if (!exported.e || !exported.n || (key.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) {
+        fail('ACME_ACCOUNT_KEY', 'RSA account keys must contain at least 2048 bits.');
       }
 
       return { alg: 'RS256', hash: 'sha256', jwk: { e: exported.e, kty: 'RSA', n: exported.n } };

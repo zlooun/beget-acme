@@ -1,6 +1,7 @@
 import { AppError, fail } from '../core/errors.js';
 import { object, isRecord } from '../core/validation.js';
 import type { HttpTransport } from '../core/validation.js';
+import { boundedResponseText } from '../core/response.js';
 
 const API_BASE = 'https://api.beget.com/api/dns/';
 const METHODS = new Set(['getData', 'changeRecords']);
@@ -94,13 +95,14 @@ export class BegetClient implements BegetProvider {
       input_data: JSON.stringify(data),
     });
     let response: Response;
+    const signal = AbortSignal.timeout(20000);
 
     try {
       response = await this.transport(`${API_BASE}${method}`, {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
         body,
-        signal: AbortSignal.timeout(20000),
+        signal,
         redirect: 'error',
       });
     } catch (cause) {
@@ -127,8 +129,12 @@ export class BegetClient implements BegetProvider {
     let dataJson: unknown;
 
     try {
-      dataJson = await response.json();
+      dataJson = JSON.parse(await boundedResponseText(response, signal));
     } catch (cause) {
+      if (cause instanceof AppError) {
+        throw cause;
+      }
+
       throw new AppError('BEGET_BAD_RESPONSE', 'Beget returned invalid JSON.', { cause });
     }
 

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import {
   approvedConfig,
+  diagnosticConfig,
   checkDirectories,
   discoverZones,
   setup,
@@ -244,7 +245,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  let config = await approvedConfig(rawConfig);
+  const diagnostic = ['status', 'doctor', 'probe'].includes(command)
+    ? await diagnosticConfig(rawConfig, logger)
+    : undefined;
+  let config = diagnostic?.config ?? (await approvedConfig(rawConfig));
   const store = new OperationStore(config.stateDir, config.environment);
 
   if (
@@ -272,6 +276,11 @@ async function main(): Promise<void> {
       break;
     case 'status':
       await app.status(flags.has('--check'));
+
+      if (flags.has('--check') && diagnostic && !diagnostic.approvalReady) {
+        fail('STATUS_NOT_READY', 'Saved approval does not match the selected configuration.');
+      }
+
       break;
     case 'cleanup':
       await store.locked(() => app.cleanup());
@@ -300,7 +309,7 @@ try {
   await main();
 } catch (error) {
   const safe = messageFor(error);
-  logger.error(`[${safe.code}] ${safe.message}`);
+  logger.error(`[${safe.code}] ${safe.message}`, { code: safe.code, hint: safe.hint });
 
   if (safe.hint) {
     logger.error(`Next step: ${safe.hint}`);

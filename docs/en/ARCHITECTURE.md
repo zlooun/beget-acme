@@ -13,7 +13,9 @@ Each instance needs separate state/output directories. CNAME delegation is unsup
 
 - `src/cli.ts`: arguments, exit codes and signal handlers.
 - `src/core/config.ts`: configuration, secret, zone and allowlist validation.
-- `src/core/application.ts`: issuance, DNS orchestration, recovery and scheduling.
+- `src/core/application.ts`: issuance, DNS orchestration and recovery.
+- `src/core/service.ts`: sequential scheduling, persisted retries and startup recovery.
+- `src/core/response.ts`: bounded Beget response reads under the request deadline.
 - `src/core/store.ts`: locks, journal, persisted retry state and certificate publication.
 - `src/core/shutdown.ts`: cancellation without premature lock release.
 - `src/providers/beget.ts`: Beget API and independent mutation allowlist.
@@ -28,9 +30,10 @@ Errors use stderr; other log events use stdout.
 1. Check authorization, existing certificate/SANs and absence of a pending journal.
 2. Preflight every challenge name before creating an ACME order.
 3. Validate exact order identifiers and group TXT tokens by name.
-4. Repeat preflight before publication, then persist every intended mutation.
+4. Persist planned mutations; repeat preflight immediately before each name's publication.
 5. Publish sequentially, recording phase before and after each request.
 6. Wait for matching authoritative and recursive DNS answers; immediately validate challenges.
+   Stale recursive answers are retried until the deadline; foreign authoritative records abort.
 7. Check SANs, validity and matching key; publish an immutable certificate version.
 8. Clean each affected name; remove an entry only after confirmed cleanup.
 
@@ -62,7 +65,8 @@ longer than certificate lifetime causes renewal on each normal check; choose it 
 Shutdown cancels waits and requests; outstanding work must unwind before lock release.
 DNS queries have bounded timeouts. Unknown mutations retain journals. SIGKILL is not catchable.
 On Linux, `current` switches with atomic rename. Windows junction replacement is not atomic;
-a validated version remains available if switching fails. Account for this limitation when
+a previous-pointer backup is restored on a failed rename, and the pending marker permits
+recovery after a crash between renames. A brief missing-pointer window remains. Account for this limitation when
 using Windows as a certificate server.
 
 ## Setup and service lifecycle
