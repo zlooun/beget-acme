@@ -4,6 +4,24 @@ Issue and renew Let's Encrypt certificates through Beget DNS. One instance manag
 certificate with an exact SAN list of domains, subdomains and wildcards.
 [Русский](../../README.md) · [Configuration](CONFIGURATION.md) · [Security](../../SECURITY.md)
 
+## Published Docker Hub image
+
+The project author maintains [zloun/beget-acme](https://hub.docker.com/r/zloun/beget-acme)
+for Linux `amd64` and `arm64`. No local build is required.
+This is an independent project, not an official Beget product or a Docker Official Image.
+
+```sh
+docker pull zloun/beget-acme:0.2.0
+```
+
+For the [Compose example without a build](../../examples/compose.image.yml), set in `.env`:
+
+```dotenv
+BEGET_ACME_IMAGE=zloun/beget-acme:0.2.0
+```
+
+See the [operations guide](OPERATIONS.md) for directories, permissions and startup instructions.
+
 ## Minimal configuration
 
 Copy .env.example to .env and set:

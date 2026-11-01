@@ -4,6 +4,24 @@
 Один экземпляр обслуживает один сертификат с точным списком SAN: домены, поддомены и wildcard.
 [English](docs/en/README.md) · [Настройки](docs/ru/CONFIGURATION.md) · [Эксплуатация и восстановление](docs/ru/OPERATIONS.md) · [Безопасность](SECURITY.md)
 
+## Готовый образ в Docker Hub
+
+Образ проекта, поддерживаемый автором: [zloun/beget-acme](https://hub.docker.com/r/zloun/beget-acme).
+Доступен для Linux `amd64` и `arm64`; собирать приложение самостоятельно не требуется.
+Это независимый проект, не официальный продукт Beget и не Docker Official Image.
+
+```sh
+docker pull zloun/beget-acme:0.2.0
+```
+
+Для [Compose без сборки](examples/compose.image.yml) укажите в `.env`:
+
+```dotenv
+BEGET_ACME_IMAGE=zloun/beget-acme:0.2.0
+```
+
+Настройка каталогов, прав и запуск описаны в [руководстве](docs/ru/OPERATIONS.md#готовый-образ).
+
 ## Минимальная конфигурация
 
 Создайте .env из .env.example и заполните:
