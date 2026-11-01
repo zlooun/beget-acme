@@ -36,24 +36,47 @@ function help(): void {
 
 Usage: beget-acme <command> [options]
 
-  setup [--staging]       Inspect DNS and save one-time approval
-                          Use --accept-dns-replacement without an interactive terminal
-  run [--once] [--staging] Issue when missing, then renew automatically (default)
+Commands:
+  run                     Issue if missing or renew if needed, then keep running (default)
+  run --once              Issue or renew if needed, finish DNS cleanup, then exit
+  schedule                Renew an existing production certificate automatically
+  schedule --once         Renew an existing production certificate if needed, then exit
+  issue [staging|production]
+                          Issue or renew if needed, then exit; defaults to staging
+  renew [staging|production]
+                          Renew an existing certificate if needed; defaults to production
+  status                  Read-only certificate, recovery and lock status
+  doctor | probe          Read-only DNS and Beget diagnostics; probe is an alias
+  setup                   Inspect DNS and save approval; no DNS writes or ACME orders
+  cleanup                 Clean up journal-owned DNS records using the original config
+  journal-clear           Archive a journal after empty-DNS checks and manual confirmation
   init                    Create .env without overwriting an existing file
-  doctor | probe          Read-only DNS and Beget diagnostics
-  issue staging|production [--dry-run]
-                          Issue a certificate for ACME_DOMAINS
-  renew [production]      Renew an existing production certificate
-  cleanup [--staging]     Recover every journal-owned DNS name
-  journal-clear [--staging] Archive a journal after explicit manual confirmation
-  status [--check] [--staging] Inspect state; --check exits nonzero if not ready
-  schedule [--once]        Check production renewal periodically or once
-  --version               Print package version
   help                    Show this help
+
+Options (flags may precede or follow the command):
+  --once                  run/schedule: one full cycle, not a read-only check
+  --staging               setup/run/status/doctor/probe/cleanup/journal-clear: use staging
+  --accept-dns-replacement setup/run/schedule: confirm inspected, dedicated DNS names
+  --dry-run               issue: DNS preflight without an account, order or DNS writes
+  --check                 status: exit nonzero if the selected environment is not ready
+  --json                  Format log events as JSON; errors use stderr
+  --version, -V           Print package version
+  --help, -h              Show this help
+
+--once waits for DNS propagation, CA processing and cleanup within the current cycle.
+It does not start another cycle after success or failure. Failures exit nonzero.
+A persisted error retry deadline is respected: exit nonzero rather than wait or retry early.
+A valid matching certificate outside its renewal window is kept, including with issue.
+schedule/renew require an existing certificate; run/issue can perform initial issuance.
+schedule always uses production; issue/renew take a positional environment, not --staging.
+Other environment-aware commands use ACME_ENVIRONMENT (production by default) or --staging.
 
 run/schedule accept --accept-dns-replacement or ACME_ACCEPT_DNS_REPLACEMENT=yes
 to perform initial setup inline. Inspect dedicated DNS names before enabling it.
---json is available for every command. Flags may precede or follow the command.
+setup uses interactive confirmation or --accept-dns-replacement in a noninteractive terminal.
+issue/renew/cleanup require approved configuration; --dry-run also requires approval.
+journal-clear additionally requires ACME_CONFIRM_JOURNAL_CLEAR and ACME_JOURNAL_CLEAR_REASON.
+Help and version output remain plain text even with --json.
 Load configuration using node --env-file=.env dist/cli.js <command>.
 `);
 }

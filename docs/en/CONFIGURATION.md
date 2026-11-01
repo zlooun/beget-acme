@@ -1,5 +1,70 @@
 # Configuration and advanced commands
 
+## Commands and modes
+
+Locally: `node --env-file=.env dist/cli.js <command> [options]`.
+For a separate Compose invocation: `docker compose run --rm beget-acme <command> [options]`.
+Do not run another issuance or cleanup process alongside the persistent service.
+
+| Command                       | Behavior                                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
+| `run`                         | Issue a missing certificate or renew if needed, then keep running; the default command   |
+| `run --once`                  | Issue or renew if needed, finish DNS cleanup and exit                                    |
+| `schedule`                    | Automatically renew an existing production certificate; no initial issuance              |
+| `schedule --once`             | Renew an existing production certificate if needed, finish DNS cleanup and exit          |
+| `issue [staging\|production]` | Issue or renew if needed and exit; defaults to staging                                   |
+| `renew [staging\|production]` | Renew an existing certificate if needed and exit; defaults to production                 |
+| `status`                      | Read-only certificate expiry, recovery and lock status                                   |
+| `doctor`, `probe`             | Read-only Beget and DNS diagnostics; aliases for the same command                        |
+| `setup`                       | Inspect DNS and save approval locally; no DNS writes or ACME orders                      |
+| `cleanup`                     | Remove journal-owned DNS records and update the journal using the original configuration |
+| `journal-clear`               | Emergency journal archival after empty-DNS checks and manual confirmation                |
+| `init`                        | Create a template `.env` without overwriting an existing file                            |
+| `help`                        | Show general help without performing an operation                                        |
+
+`run` and `schedule` include recovery before issuance and retry scheduling.
+`issue` and `renew` do not start that service loop: recover any pending DNS journal first
+using `cleanup` with the original configuration. Like `cleanup`, they require approved
+configuration. `issue` does not force reissuance: a valid matching certificate outside
+its renewal window is kept.
+
+### Flags and environments
+
+- `--once` — `run` and `schedule` only. One full cycle including any necessary issuance/renewal,
+  DNS propagation, CA processing and cleanup. No new order if renewal is unnecessary.
+  Exit after success or failure instead of starting another cycle; failures exit nonzero.
+  A persisted error retry delay is respected: return `RENEW_RETRY_DEFERRED` before the
+  deadline, without waiting or issuing early. A normal post-success delay does not defer
+  `--once`: it evaluates certificate lifetime immediately after recovery.
+- `--staging` — `run`, `setup`, `status`, `doctor`, `probe`, `cleanup`, `journal-clear`.
+  Otherwise these commands use `ACME_ENVIRONMENT`, which defaults to production.
+  `schedule` always uses production. For `issue` and `renew`, pass the environment
+  positionally, for example `issue staging` or `renew production`.
+- `--accept-dns-replacement` — `run`, `schedule`, `setup`; confirms panel inspection of
+  dedicated DNS names. `run`/`schedule` also accept `ACME_ACCEPT_DNS_REPLACEMENT=yes`.
+  Standalone `setup` asks for interactive confirmation or requires the flag without a terminal.
+- `--dry-run` — `issue` only: DNS preflight without an ACME account, order or DNS writes.
+  Approved configuration is still required. Example: `issue staging --dry-run`.
+- `--check` — `status` only: exit nonzero if the selected environment is not ready.
+- `--json` — format log events for all commands; errors use stderr.
+  Help and version output remain plain text.
+- `--help` / `-h` — general help; `--version` / `-V` — version. Both exit without executing
+  an operation and need no configuration or credentials.
+
+Flags may precede or follow the command. See the table in the
+[README](README.md#commands-and-help) or run `node dist/cli.js --help`.
+
+### Emergency journal archival
+
+`journal-clear` neither removes DNS records nor replaces `cleanup`. Use it only after
+manually inspecting the panel and investigating an ambiguous outcome. Set all current
+journal names, comma-separated, in `ACME_CONFIRM_JOURNAL_CLEAR`, and an inspection reason
+of at least 10 characters in `ACME_JOURNAL_CLEAR_REASON`. The application checks that names
+are empty and verifies stable responses from the configured authoritative DNS servers
+before archiving the journal. See [ambiguous recovery](OPERATIONS.md#read-only-diagnosis-and-ambiguous-recovery).
+
+## Basic settings
+
 Required: `ACME_DOMAINS` (exact comma-separated SAN list, up to 100), `ACME_EMAIL`,
 `BEGET_USERNAME`, `BEGET_PASSWORD`. `ACME_ENVIRONMENT` defaults to production; use staging
 for a persistent test service. Optional `BEGET_ZONES` overrides API-based discovery.
@@ -41,10 +106,7 @@ File-backed Compose secrets still require host filesystem and backup protection.
 | `ACME_PRIVATE_KEY_MODE`     | `0600`             | Optional `0640` for a configured shared group  |
 
 Timeout must exceed the cleanup stability interval by more than 30 seconds. Synchronize host clocks.
-CNAME delegation is unsupported. `--json` works globally; errors use stderr. Flags can precede
-or follow commands. `run --once` supports cron/systemd timers. `issue staging --dry-run` checks
-DNS without orders or mutations. `init` never overwrites
-`.env`; `--version` prints the package version.
+CNAME delegation is unsupported.
 
 ## Scheduler
 
@@ -53,7 +115,9 @@ ACME_RETRY_INTERVAL_MS (1 hour) after any operational failure. CA Retry-After ca
 the delay. There is no attempt limit. Mode and next check time persist across restarts.
 Pending DNS recovery is attempted safely before issuance; foreign records and uncertain
 mutations are never bypassed. Recovery failure leaves the service running and waiting.
---once makes one attempt and returns errors to an external scheduler, including deferred retries.
+With `--once`, the service performs any necessary issuance/renewal and cleanup in one cycle,
+then exits. Failures or a retry deadline that has not arrived return a nonzero exit code
+to the external scheduler.
 An unset ACME_RENEW_BEFORE_DAYS uses one third of actual certificate lifetime; an explicit
 value is used exactly. Renew when remaining lifetime is less than the threshold. A threshold
 longer than certificate lifetime causes renewal on each normal check; choose it deliberately.
