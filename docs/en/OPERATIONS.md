@@ -7,9 +7,11 @@ and independent state-a/output-a/state-b/output-b directories. Prepare ownership
 Run docker compose --project-directory . -f examples/compose.multiple.yml up -d --build
 from the repository root. Do not overlap challenge names; apex and wildcard share one name.
 For rootless Docker account for host UID mapping.
-[Image-only Compose](../../examples/compose.image.yml) requires BEGET_ACME_IMAGE pointing to
-an available image. Use --project-directory . -f examples/compose.image.yml consistently,
-pull, test staging with run --rm beget-acme run --staging --once, then up -d.
+[Image-only Compose](../../examples/compose.image.yml) defaults to `zloun/beget-acme:0.2.1`;
+BEGET_ACME_IMAGE can override the tag. It runs as root and creates missing directories.
+Use --project-directory . -f examples/compose.image.yml consistently. After panel inspection,
+set `ACME_ACCEPT_DNS_REPLACEMENT=true` and use `up -d`. A preliminary staging run with
+`run --rm beget-acme run --staging --once --accept-dns-replacement` is optional.
 unless-stopped restores the service after daemon restart; recovery guards and retry deadlines persist.
 
 ## Timers
@@ -93,10 +95,14 @@ guarantees because directory fsync is unavailable through this implementation.
 
 ## Container user and permissions
 
-The image defaults to UID/GID 10001:10001. Compose overrides it using APP_UID/APP_GID
-without rebuilding. Set bind-directory ownership on the host: Dockerfile chown does not
-change mounted host directories. File-based secrets must also be readable by the selected
+Image `0.2.1` and Compose default to `0:0` (root). Set both APP_UID/APP_GID for non-root without rebuilding. For direct
+`docker run`, use `--user`; these environment variables are read only by Compose.
+Set bind-directory ownership on the host; no automatic chown is performed.
+File-based secrets must also be readable by the selected
 UID/GID; Compose does not remap ownership for file secrets.
+Compose creates missing directories, but non-root startup requires preparing them first.
+To switch users, stop the service, back up data and adjust existing ownership. Do not
+delete state to change users. See [non-root setup](README.md#non-root-usage).
 For a continuous staging service, set ACME_ENVIRONMENT=staging so the service and healthcheck
 use the same environment. Healthcheck can fail until the first certificate is issued.
 

@@ -71,7 +71,7 @@ schedule/renew require an existing certificate; run/issue can perform initial is
 schedule always uses production; issue/renew take a positional environment, not --staging.
 Other environment-aware commands use ACME_ENVIRONMENT (production by default) or --staging.
 
-run/schedule accept --accept-dns-replacement or ACME_ACCEPT_DNS_REPLACEMENT=yes
+run/schedule accept --accept-dns-replacement or ACME_ACCEPT_DNS_REPLACEMENT=true
 to perform initial setup inline. Inspect dedicated DNS names before enabling it.
 setup uses interactive confirmation or --accept-dns-replacement in a noninteractive terminal.
 issue/renew/cleanup require approved configuration; --dry-run also requires approval.
@@ -224,8 +224,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const acceptReplacement =
-    flags.has('--accept-dns-replacement') || process.env.ACME_ACCEPT_DNS_REPLACEMENT === 'yes';
+  const acceptReplacement = flags.has('--accept-dns-replacement') || rawConfig.canWrite;
 
   if (command === 'run' || command === 'schedule') {
     // Validate purely local inputs before entering a persistent operational retry loop.

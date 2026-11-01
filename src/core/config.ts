@@ -151,7 +151,13 @@ export async function loadConfig(env = process.env) {
     }
   }
 
-  const consent = env.ACME_ACCEPT_DNS_REPLACEMENT === 'yes';
+  const consentValue = env.ACME_ACCEPT_DNS_REPLACEMENT;
+
+  if (consentValue !== undefined && consentValue !== 'true' && consentValue !== 'false') {
+    fail('CONFIG_DNS_CONSENT', 'ACME_ACCEPT_DNS_REPLACEMENT must be true or false.');
+  }
+
+  const consent = consentValue === 'true';
   const confirmedChallenges = consent ? [...challenges] : [];
   const timeoutMs = integer(env.ACME_DNS_TIMEOUT_MS, 900000, 'ACME_DNS_TIMEOUT_MS', 60000, 3600000);
   const cleanupSettleMs = integer(
@@ -242,7 +248,7 @@ export function authorizeWrite(config: Config, name: string) {
     fail(
       'DNS_WRITE_DISABLED',
       'DNS mutation is disabled.',
-      'Run setup or set ACME_ACCEPT_DNS_REPLACEMENT=yes after inspecting dedicated DNS names.',
+      'Run setup or set ACME_ACCEPT_DNS_REPLACEMENT=true after inspecting dedicated DNS names.',
     );
   }
 

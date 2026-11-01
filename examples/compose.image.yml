@@ -1,7 +1,7 @@
 services:
   beget-acme:
-    image: ${BEGET_ACME_IMAGE:?Set a published image reference}
-    user: '${APP_UID:-10001}:${APP_GID:-10001}'
+    image: ${BEGET_ACME_IMAGE:-zloun/beget-acme:0.2.1}
+    user: '${APP_UID:-0}:${APP_GID:-0}'
     init: true
     stop_grace_period: 90s
     restart: unless-stopped
@@ -14,12 +14,12 @@ services:
         source: ${STATE_DIR:-./state}
         target: /state
         bind:
-          create_host_path: false
+          create_host_path: true
       - type: bind
         source: ${CERTIFICATES_DIR:-./output}
         target: /output
         bind:
-          create_host_path: false
+          create_host_path: true
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=32m

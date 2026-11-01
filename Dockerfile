@@ -17,9 +17,10 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY .env.example LICENSE ./
-RUN mkdir -p /state /output && chown -R 10001:10001 /state /output
-# Safe default; Compose user or docker run --user can override the UID/GID.
-USER 10001:10001
+RUN mkdir -p /state /output
+# Simple first startup; override with Compose user or docker run --user for non-root.
+# Mounted directory ownership is managed by the operator, never changed at startup.
+USER 0:0
 HEALTHCHECK --interval=5m --timeout=15s --start-period=30s CMD node dist/cli.js status --check
 ENTRYPOINT ["node", "dist/cli.js"]
 CMD ["run"]

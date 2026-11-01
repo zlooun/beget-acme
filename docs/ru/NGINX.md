@@ -25,6 +25,8 @@
 
 ## Пользователи и права
 
+Этот overlay явно использует non-root режим, независимо от root по умолчанию в базовом Compose.
+
 По умолчанию UID ACME — 10001, UID/GID Nginx — 10003, общая TLS-группа — 10002.
 Замените их на свои. Overlay назначает `TLS_GID` основной группой ACME и дополнительной
 группой Nginx. Наличие пользователей с такими же именами внутри образов не требуется.
@@ -65,7 +67,7 @@ docker compose --project-directory . --env-file .env -f examples/compose.image.y
 docker compose --project-directory . --env-file .env -f examples/compose.image.yml -f examples/compose.nginx.yml up -d
 ```
 
-Альтернатива: после проверки панели включите `ACME_ACCEPT_DNS_REPLACEMENT=yes` и используйте
+Альтернатива: после проверки панели включите `ACME_ACCEPT_DNS_REPLACEMENT=true` и используйте
 `up -d` также для первого выпуска. Nginx ждёт успешного healthcheck ACME; после выпуска
 может потребоваться дождаться очередной проверки. Staging-сертификат не заменяет production
 в этом примере. Последующая ошибка ACME не останавливает уже работающий Nginx автоматически.

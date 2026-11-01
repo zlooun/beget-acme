@@ -2,7 +2,7 @@ services:
   site-a:
     image: ${BEGET_ACME_IMAGE:-beget-acme:local}
     build: .
-    user: '${APP_UID:-10001}:${APP_GID:-10001}'
+    user: '${APP_UID:-0}:${APP_GID:-0}'
     init: true
     stop_grace_period: 90s
     restart: unless-stopped
@@ -15,12 +15,12 @@ services:
         source: ./state-a
         target: /state
         bind:
-          create_host_path: false
+          create_host_path: true
       - type: bind
         source: ./output-a
         target: /output
         bind:
-          create_host_path: false
+          create_host_path: true
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=32m
@@ -36,7 +36,7 @@ services:
   site-b:
     image: ${BEGET_ACME_IMAGE:-beget-acme:local}
     build: .
-    user: '${APP_UID:-10001}:${APP_GID:-10001}'
+    user: '${APP_UID:-0}:${APP_GID:-0}'
     init: true
     stop_grace_period: 90s
     restart: unless-stopped
@@ -49,12 +49,12 @@ services:
         source: ./state-b
         target: /state
         bind:
-          create_host_path: false
+          create_host_path: true
       - type: bind
         source: ./output-b
         target: /output
         bind:
-          create_host_path: false
+          create_host_path: true
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=32m

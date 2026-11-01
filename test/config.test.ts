@@ -28,13 +28,33 @@ test('configuration rejects invalid domains, numbers, and test-zone escalation',
 test('DNS writes require an exact name, explicit confirmation and opt-in', async () => {
   const c = await loadConfig(env);
   assert.throws(() => authorizeWrite(c, c.challenges[0]!), /disabled/);
-  const writable = await loadConfig({ ...env, ACME_ACCEPT_DNS_REPLACEMENT: 'yes' });
+  const writable = await loadConfig({ ...env, ACME_ACCEPT_DNS_REPLACEMENT: 'true' });
   assert.doesNotThrow(() => authorizeWrite(writable, writable.challenges[0]!));
   assert.throws(() => authorizeWrite(writable, 'mydomain.net'), /outside/);
   assert.throws(
     () => authorizeWrite({ ...writable, confirmedChallenges: [] }, writable.challenges[0]!),
     { code: 'DNS_CONFIRMATION_REQUIRED' },
   );
+});
+
+test('disabled inline consent does not grant DNS write permissions', async () => {
+  for (const value of [undefined, 'false']) {
+    const config = await loadConfig({ ...env, ACME_ACCEPT_DNS_REPLACEMENT: value });
+    assert.equal(config.canWrite, false);
+    assert.equal(config.canProduction, false);
+    assert.deepEqual(config.confirmedChallenges, []);
+    assert.throws(() => authorizeWrite(config, config.challenges[0]!), {
+      code: 'DNS_WRITE_DISABLED',
+    });
+  }
+});
+
+test('DNS consent rejects values other than lowercase true and false', async () => {
+  for (const value of ['', 'yes', 'no', 'TRUE', 'FALSE', '1', '0', ' true ']) {
+    await assert.rejects(loadConfig({ ...env, ACME_ACCEPT_DNS_REPLACEMENT: value }), {
+      code: 'CONFIG_DNS_CONSENT',
+    });
+  }
 });
 
 test('challenge prefix must fit within the DNS name length limit', async () => {
@@ -62,7 +82,7 @@ test('explicit identities require explicit managed zones and exact confirmations
   const config = await loadConfig({
     ACME_DOMAINS: 'api.example.com,*.apps.other.net',
     BEGET_ZONES: 'example.com,other.net',
-    ACME_ACCEPT_DNS_REPLACEMENT: 'yes',
+    ACME_ACCEPT_DNS_REPLACEMENT: 'true',
   });
   assert.deepEqual(config.domains, ['api.example.com', '*.apps.other.net']);
 

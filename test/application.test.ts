@@ -31,7 +31,7 @@ async function fixture(work: (fixture: Fixture) => Promise<void>, overrides: Par
       ACME_EMAIL: 'me@example.com',
       BEGET_USERNAME: 'login',
       BEGET_PASSWORD: 'secret',
-      ACME_ACCEPT_DNS_REPLACEMENT: 'yes',
+      ACME_ACCEPT_DNS_REPLACEMENT: 'true',
       ACME_STATE_DIR: dir,
       ACME_OUTPUT_DIR: path.join(dir, 'output'),
     });

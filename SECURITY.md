@@ -87,13 +87,22 @@ not a bypass of preflight. Protect `state/setup.json` like other operational sta
 Stop the service before changing configuration. Recover pending DNS using the original
 configuration before approving a new scope. For staging-only approval use
 `cleanup --staging` and `journal-clear --staging`; production approval is separate.
-The image runs as a non-root process; running the Docker daemon rootless is a separate
-host configuration. No Docker socket or privileged startup helper is needed.
+New image builds and the basic Compose examples default to root (UID/GID 0:0).
+For persistent deployments, prefer a dedicated non-root user: set both APP_UID/APP_GID
+in Compose or use docker run --user, and prepare writable directories with matching ownership.
+Keep explicit IDs when upgrading existing non-root deployments. Stop and back up before
+changing ownership of existing state/output; startup never performs automatic chown.
+Compose creates missing bind directories; root-created files on an ordinary Docker host
+belong to root. Existing filesystem permissions and NAS ACLs still apply.
+Both Compose modes retain a read-only root filesystem, dropped capabilities and
+no-new-privileges. Running the Docker daemon rootless is a separate host configuration.
+No Docker socket or privileged startup helper is needed.
 
 ## One-command startup
 
 run/schedule can perform setup inline using --accept-dns-replacement or
-ACME_ACCEPT_DNS_REPLACEMENT=yes. This explicitly authorizes the selected environment and
+ACME_ACCEPT_DNS_REPLACEMENT=true (default: false). False/unset does not grant new approval
+but does not revoke matching saved approval. Explicit yes authorizes the selected environment and
 configured scope; it can approve a changed scope on a later start. Do not enable it globally
 for untrusted configuration. Pending recovery still prevents replacing approval. It does not
 bypass provider/DNS checks or overwrite corrupt approval. Without this consent, matching

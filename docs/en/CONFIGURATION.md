@@ -41,7 +41,7 @@ its renewal window is kept.
   `schedule` always uses production. For `issue` and `renew`, pass the environment
   positionally, for example `issue staging` or `renew production`.
 - `--accept-dns-replacement` — `run`, `schedule`, `setup`; confirms panel inspection of
-  dedicated DNS names. `run`/`schedule` also accept `ACME_ACCEPT_DNS_REPLACEMENT=yes`.
+  dedicated DNS names. `run`/`schedule` also accept `ACME_ACCEPT_DNS_REPLACEMENT=true`.
   Standalone `setup` asks for interactive confirmation or requires the flag without a terminal.
 - `--dry-run` — `issue` only: DNS preflight without an ACME account, order or DNS writes.
   Approved configuration is still required. Example: `issue staging --dry-run`.
@@ -71,7 +71,13 @@ for a persistent test service. Optional `BEGET_ZONES` overrides API-based discov
 
 Native paths: `ACME_STATE_DIR=./state`, `ACME_OUTPUT_DIR=./output`. Compose host paths:
 `STATE_DIR=./state`, `CERTIFICATES_DIR=./output`; container paths remain `/state`, `/output`.
-Compose UID/GID default to `10001:10001` and can be changed with `APP_UID`/`APP_GID`.
+Compose UID/GID default to `0:0` (root). Set both `APP_UID` and `APP_GID` for non-root.
+Compose creates missing state/output directories; prepare ownership and permissions before
+non-root startup. See [non-root recommendations](README.md#non-root-usage).
+
+`ACME_ACCEPT_DNS_REPLACEMENT` defaults to `false`. Only the exact value `true` enables
+inline approval after DNS inspection. Values other than `true` or `false`, including an empty string, are rejected. False or unset does not grant new
+approval and does not revoke a matching saved approval.
 
 Setup approval is separate for staging/production and bound to domains, explicit zones,
 nameservers, login. Passwords are never stored in setup; password rotation
@@ -145,8 +151,8 @@ Cleanup polling reads DNS repeatedly; it does not repeatedly delete records.
 
 ## Startup without a separate setup command
 
-run and schedule accept --accept-dns-replacement or ACME_ACCEPT_DNS_REPLACEMENT=yes.
-Consent is unset by default. It explicitly authorizes replacement at the computed DNS names
+run and schedule accept --accept-dns-replacement or ACME_ACCEPT_DNS_REPLACEMENT=true.
+Consent defaults to `false`. Enabling it explicitly authorizes replacement at the computed DNS names
 and attests panel inspection. Missing/mismatched approval triggers inline setup: directories,
 managed zones, empty DNS and recovery guards. Matching approval is reused without rerunning
 setup. Corrupt approval is not automatically overwritten. Pending recovery prevents changes

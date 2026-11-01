@@ -25,6 +25,8 @@ is tested with the specified Alpine image and preserves that image's original en
 
 ## Users and permissions
 
+This overlay explicitly uses non-root users regardless of the basic Compose root default.
+
 Defaults: ACME UID 10001, Nginx UID/GID 10003, shared TLS GID 10002. Replace these with your
 host identities. The overlay sets ACME's primary group to `TLS_GID` and adds that group to
 Nginx. Numeric identities need not have matching names inside the images.
@@ -64,7 +66,7 @@ docker compose --project-directory . --env-file .env -f examples/compose.image.y
 docker compose --project-directory . --env-file .env -f examples/compose.image.yml -f examples/compose.nginx.yml up -d
 ```
 
-Alternatively, after inspecting the panel, enable `ACME_ACCEPT_DNS_REPLACEMENT=yes` and use
+Alternatively, after inspecting the panel, enable `ACME_ACCEPT_DNS_REPLACEMENT=true` and use
 `up -d` for first issuance as well. Nginx waits for ACME's healthcheck to pass; this can take
 until the next healthcheck after issuance. Staging certificates do not satisfy this production
 example. A later ACME outage does not automatically stop an already running Nginx container.

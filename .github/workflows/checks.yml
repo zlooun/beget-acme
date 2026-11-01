@@ -58,6 +58,44 @@ jobs:
         run: |
           docker pull nginx/nginx-unprivileged:1.31.7-alpine3.24
           npm run test:nginx
+      - name: Default root startup creates bind directories (no network)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          docker run --rm --network none --entrypoint node beget-acme:test -e \
+            'require("node:assert/strict").equal(process.getuid(), 0)'
+          fixture_dir=$(mktemp -d "$RUNNER_TEMP/beget-root-XXXXXX")
+          cp examples/compose.image.yml "$fixture_dir/compose.yaml"
+          cat > "$fixture_dir/.env" <<'ENV'
+          BEGET_ACME_IMAGE=beget-acme:test
+          ACME_DOMAINS=example.com
+          ACME_EMAIL=admin@example.com
+          BEGET_USERNAME=fixture
+          BEGET_PASSWORD=fixture
+          ACME_ACCEPT_DNS_REPLACEMENT=false
+          ENV
+          printf 'services:\n  beget-acme:\n    network_mode: none\n' > "$fixture_dir/offline.yaml"
+          test ! -e "$fixture_dir/state"
+          test ! -e "$fixture_dir/output"
+          docker compose -p root-startup-test --project-directory "$fixture_dir" \
+            --env-file "$fixture_dir/.env" -f "$fixture_dir/compose.yaml" -f "$fixture_dir/offline.yaml" \
+            run --rm --no-deps --entrypoint node beget-acme --input-type=module -e '
+              import assert from "node:assert/strict";
+              import { loadConfig, authorizeWrite } from "./dist/core/config.js";
+              import { checkDirectories } from "./dist/core/setup.js";
+              import { OperationStore } from "./dist/core/store.js";
+              assert.equal(process.getuid(), 0);
+              assert.equal(process.getgid(), 0);
+              const config = await loadConfig(process.env);
+              assert.equal(config.canWrite, false);
+              assert.throws(() => authorizeWrite(config, config.challenges[0]),
+                { code: "DNS_WRITE_DISABLED" });
+              await checkDirectories(config);
+              const store = new OperationStore(config.stateDir);
+              await store.locked(async () => store.setRetry(0, "OK"));
+              assert.equal((await store.retryState()).code, "OK");'
+          test -d "$fixture_dir/state"
+          test -d "$fixture_dir/output"
       - name: Non-root writable mounts with read-only filesystem (no network)
         if: runner.os == 'Linux'
         shell: bash

@@ -1,7 +1,7 @@
 # Beget ACME
 
 Automatically issue and renew Let's Encrypt certificates for domains using Beget DNS.
-Supports domains, subdomains and wildcards; runs locally or in Docker without root.
+Supports domains, subdomains and wildcards; runs locally or in Docker as root or non-root.
 One instance manages one certificate containing multiple names.
 
 [Русский](../../README.md) · [Docker Hub](https://hub.docker.com/r/zloun/beget-acme) · [Releases](https://github.com/zlooun/beget-acme/releases) · [Issues](https://github.com/zlooun/beget-acme/issues)
@@ -13,6 +13,7 @@ This is an independent project, not an official Beget product or a Docker Offici
 - [Certificates and automatic renewal](#certificates-and-automatic-renewal).
 - [Commands and help](#commands-and-help).
 - [Configuration](#configuration).
+- [Non-root usage](#non-root-usage).
 - [Common use cases](#common-use-cases).
 - [Troubleshooting](#troubleshooting) and [upgrading](#upgrading).
 
@@ -35,83 +36,73 @@ BEGET_USERNAME=your_api_login
 BEGET_PASSWORD='your_api_password'
 ACME_EMAIL=admin@example.com
 ACME_DOMAINS=example.com,*.example.com
+# Default: false. Set to true after inspecting the dedicated DNS names.
+ACME_ACCEPT_DNS_REPLACEMENT=false
 ```
 
 Replace the values with your own. Single quotes help preserve `$` and `#` in a password
 when Compose reads it. Keep `.env` private and readable only by the required user.
 The wildcard `*.example.com` covers neither `example.com` itself nor `api.dev.example.com`.
 
+`ACME_ACCEPT_DNS_REPLACEMENT` defaults to `false`: no new approval is granted.
+For initial issuance, enable `true` after panel inspection or use the CLI consent flag.
+This does not revoke saved approval: a matching setup still allows the service to operate.
+
 ### Docker Compose
 
 Requires Docker with Compose v2. No Node.js installation or source build is needed.
-These commands target Linux; a NAS interface can create the same files and directories.
+This Compose file runs the application as **root (0:0)** and automatically creates
+`state` and `output`. No manual `mkdir`, `chown` or UID/GID configuration is needed
+for the data directories. See [non-root usage](#non-root-usage) for that option.
 
 **1. Prepare a working directory and Compose file.**
 
 ```sh
 mkdir beget-acme
 cd beget-acme
-curl -fsSL https://raw.githubusercontent.com/zlooun/beget-acme/v0.2.0/examples/compose.image.yml -o compose.yaml
+curl -fsSL https://raw.githubusercontent.com/zlooun/beget-acme/main/examples/compose.image.yml -o compose.yaml
 ```
 
 Alternatively, save the [published-image Compose example](../../examples/compose.image.yml)
-as `compose.yaml`. Create `.env` next to it with the four settings above, then add:
+as `compose.yaml`. A NAS interface can create the same working directory and files.
+Compose already selects the published `zloun/beget-acme:0.2.1` image;
+`BEGET_ACME_IMAGE` can override the tag but is not required for first startup.
+
+**2. Create `.env` next to it** with the four settings above.
+After inspecting the dedicated DNS names in the panel, change consent from `false` to `true`:
 
 ```dotenv
-BEGET_ACME_IMAGE=zloun/beget-acme:0.2.0
+ACME_ACCEPT_DNS_REPLACEMENT=true
 ```
 
-**2. Create directories and set permissions.** The container defaults to user `10001:10001`:
-
-```sh
-mkdir -p state output
-sudo chown 10001:10001 state output
-sudo chmod 700 state
-sudo chmod 750 output
-chmod 600 .env
-```
-
-For a different user, set `APP_UID` and `APP_GID` in `.env` and use those same IDs when
-setting ownership. Check ACLs on NAS systems and host ID mapping for rootless Docker.
-[More about permissions](OPERATIONS.md#container-user-and-permissions).
-
-**3. Test issuance in staging.** Test certificates are not intended for browser use:
-
-```sh
-docker compose pull
-docker compose run --rm beget-acme run --staging --once --accept-dns-replacement
-```
-
-Wait for successful issuance and DNS cleanup. If the command fails, see
-[troubleshooting](#troubleshooting) before continuing.
-
-**4. Start the production service.** After inspecting the DNS names in the panel, add to `.env`:
-
-```dotenv
-ACME_ACCEPT_DNS_REPLACEMENT=yes
-```
-
-Then start the container:
+**3. Start the service with one command:**
 
 ```sh
 docker compose up -d
+```
+
+The image runs `run`: it issues a missing production certificate and stays running to
+renew automatically. No preliminary `run --once` or separate `setup` is required.
+Follow progress with:
+
+```sh
 docker compose logs -f beget-acme
 ```
 
-The image runs `run` by default: it issues a missing certificate and stays running to renew
-automatically. No preliminary `run --once` or separate `setup` is required. The environment
-variable authorizes DNS replacement without interactive input. Pressing `Ctrl+C` while
-following logs does not stop the container.
+Pressing `Ctrl+C` while following logs does not stop the container. With consent left
+at `false` and no saved approval, issuance will not start. Enable consent after DNS
+inspection and apply the change with `docker compose up -d`.
 
-**Optional alternative:** to wait for the first production issuance in the terminal without
-setting this variable, run:
+**Optional test before production:** while the persistent service is not yet running,
+you can issue a staging certificate:
 
 ```sh
-docker compose run --rm beget-acme run --once --accept-dns-replacement
+docker compose run --rm beget-acme run --staging --once --accept-dns-replacement
 ```
 
-After successful completion, start `docker compose up -d`. Production approval has been saved,
-so the service no longer needs the consent flag or variable. Do not run `run --once`
+Wait for successful issuance and DNS cleanup, then run `docker compose up -d`.
+Staging certificates are not intended for browser use. To issue a production certificate
+once in the terminal, omit `--staging` from that command. Do not run these operations
 alongside the persistent service.
 
 ### Local installation
@@ -122,7 +113,7 @@ The `node` and `npm` commands also work in Windows PowerShell.
 **1. Get the source and build:**
 
 ```sh
-git clone --branch v0.2.0 --depth 1 https://github.com/zlooun/beget-acme.git
+git clone --branch v0.2.1 --depth 1 https://github.com/zlooun/beget-acme.git
 cd beget-acme
 npm ci
 npm run build
@@ -148,6 +139,50 @@ node --env-file=.env dist/cli.js run --accept-dns-replacement
 `run` stays in the foreground and renews when needed. To keep it running after closing
 the terminal, use Docker or [systemd](OPERATIONS.md#timers).
 A separate `setup` command is not needed for this quick start.
+
+## Non-root usage
+
+For a persistent deployment, we recommend a dedicated user with access only to application
+data. This mode is optional: the basic Compose setup runs as `0:0`. UID/GID settings apply
+to the container; native Node.js runs as its invoking user and does not switch users based
+on these variables.
+
+**For a new installation**, set both IDs in `.env`:
+
+```dotenv
+APP_UID=10001
+APP_GID=10001
+```
+
+Prepare directories with matching ownership before startup. Linux example:
+
+```sh
+mkdir -p state output
+sudo chown 10001:10001 state output
+sudo chmod 700 state
+sudo chmod 750 output
+chmod 600 .env
+docker compose up -d
+```
+
+Use your own IDs and paths. On NAS systems, grant the user write access to state/output
+and check ACLs along the directory path. The application never performs automatic `chown`.
+Without preparation, Compose creates directories but the selected user may lack write access.
+For direct `docker run`, use `--user UID:GID`, not `APP_UID`/`APP_GID`.
+
+**When switching from root to non-root**, stop the service, back up its data and assign
+the chosen user ownership of all existing state/output, including keys and SQLite files.
+Editing `.env` alone is insufficient. Preserve private key permissions; do not use `chmod 777`.
+When upgrading an existing non-root installation, keep its `APP_UID` and `APP_GID` explicit.
+
+A non-root process and rootless Docker are different modes: account for host ID mapping
+with a rootless daemon. Both Compose modes retain a read-only root filesystem,
+`cap_drop: ALL` and `no-new-privileges`, without a Docker socket mount. On ordinary Docker,
+files created by root in bind mounts are owned by root on the host. Existing permissions
+and ACLs can still restrict access.
+
+For Nginx or another TLS server, separately configure a shared group and key read permissions:
+see the [Nginx guide](NGINX.md). That example explicitly uses non-root users.
 
 ## Certificates and automatic renewal
 
@@ -181,7 +216,7 @@ operator intervention: retries do not bypass safety checks.
 Help needs no configuration or credentials:
 
 ```sh
-docker run --rm zloun/beget-acme:0.2.0 --help
+docker run --rm zloun/beget-acme:0.2.1 --help
 node dist/cli.js --help
 ```
 
@@ -248,20 +283,21 @@ Everyday operation usually needs only `run`, `status` and `doctor`.
 
 ## Configuration
 
-Only the four quick-start settings are required; the published-image Compose example also
-requires `BEGET_ACME_IMAGE`. Change other settings only when needed.
+The four quick-start settings and explicit consent for initial issuance are required.
+`BEGET_ACME_IMAGE` optionally overrides the image selected in Compose.
+Change other settings only when needed.
 
-| Variable                           | Default               | Purpose                                                      |
-| ---------------------------------- | --------------------- | ------------------------------------------------------------ |
-| `ACME_DOMAINS`                     | Required              | Comma-separated names in one certificate, up to 100          |
-| `ACME_EMAIL`                       | Required              | ACME account contact email                                   |
-| `BEGET_USERNAME`, `BEGET_PASSWORD` | Required              | Beget API credentials                                        |
-| `ACME_RENEW_BEFORE_DAYS`           | One third of lifetime | Renew when fewer than this many days remain                  |
-| `ACME_SCHEDULE_INTERVAL_MS`        | `43200000` (12 h)     | Delay after a successful check                               |
-| `ACME_RETRY_INTERVAL_MS`           | `3600000` (1 h)       | Delay after an operational failure                           |
-| `ACME_ENVIRONMENT`                 | `production`          | Set `staging` for a persistent test service                  |
-| `ACME_PRIVATE_KEY_MODE`            | `0600`                | Use `0640` for a configured shared group to read the key     |
-| `ACME_ACCEPT_DNS_REPLACEMENT`      | Unset                 | `yes` replaces the initial consent flag for `run`/`schedule` |
+| Variable                           | Default               | Purpose                                                       |
+| ---------------------------------- | --------------------- | ------------------------------------------------------------- |
+| `ACME_DOMAINS`                     | Required              | Comma-separated names in one certificate, up to 100           |
+| `ACME_EMAIL`                       | Required              | ACME account contact email                                    |
+| `BEGET_USERNAME`, `BEGET_PASSWORD` | Required              | Beget API credentials                                         |
+| `ACME_RENEW_BEFORE_DAYS`           | One third of lifetime | Renew when fewer than this many days remain                   |
+| `ACME_SCHEDULE_INTERVAL_MS`        | `43200000` (12 h)     | Delay after a successful check                                |
+| `ACME_RETRY_INTERVAL_MS`           | `3600000` (1 h)       | Delay after an operational failure                            |
+| `ACME_ENVIRONMENT`                 | `production`          | Set `staging` for a persistent test service                   |
+| `ACME_PRIVATE_KEY_MODE`            | `0600`                | Use `0640` for a configured shared group to read the key      |
+| `ACME_ACCEPT_DNS_REPLACEMENT`      | `false`               | `true` replaces the initial consent flag for `run`/`schedule` |
 
 For example, to renew with less than 10 days remaining:
 
@@ -278,7 +314,7 @@ longer than the certificate lifetime: it would renew on every successful check.
 | ---------------------- | ----------------------------------- | --------------------- |
 | Local                  | `ACME_STATE_DIR`, `ACME_OUTPUT_DIR` | `./state`, `./output` |
 | Compose host paths     | `STATE_DIR`, `CERTIFICATES_DIR`     | `./state`, `./output` |
-| Compose container user | `APP_UID`, `APP_GID`                | `10001`, `10001`      |
+| Compose container user | `APP_UID`, `APP_GID`                | `0`, `0` (root)       |
 
 Compose sets `/state` and `/output` inside the container; host paths may be absolute.
 After editing `.env`, recreate the service with `docker compose up -d` or restart the local

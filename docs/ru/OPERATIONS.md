@@ -13,9 +13,11 @@ site-b.env с разными ACME_DOMAINS, общим или разными ак
 ## Готовый образ
 
 [Compose без сборки](../../examples/compose.image.yml) использует BEGET_ACME_IMAGE из .env.
-Укажите реально доступный образ и подготовьте каталоги. Из корня проекта используйте
+По умолчанию выбран `zloun/beget-acme:0.2.1`; переменная позволяет заменить тег.
+Compose работает как root и создаёт отсутствующие каталоги. Из корня проекта используйте
 --project-directory . -f examples/compose.image.yml во всех командах Compose.
-После pull выполните run --rm beget-acme run --staging --once, затем up -d для production.
+После проверки панели задайте `ACME_ACCEPT_DNS_REPLACEMENT=true` и выполните `up -d`.
+Предварительный staging через `run --rm beget-acme run --staging --once --accept-dns-replacement` необязателен.
 Политика unless-stopped возвращает сервис после перезапуска Docker. Журнал и проверки безопасности продолжают блокировать небезопасные операции даже при рестартах.
 
 ## systemd и cron
@@ -24,7 +26,7 @@ site-b.env с разными ACME_DOMAINS, общим или разными ак
 запускают run --once раз в час. Подготовьте пользователя beget-acme, собранный проект в
 /opt/beget-acme и файл /etc/beget-acme.env, читаемый только этим пользователем.
 Укажите ACME_STATE_DIR=/var/lib/beget-acme, ACME_OUTPUT_DIR=/var/lib/beget-certificates и
-ACME_ACCEPT_DNS_REPLACEMENT=yes после проверки панели. Создайте каталоги с нужными правами.
+ACME_ACCEPT_DNS_REPLACEMENT=true после проверки панели. Создайте каталоги с нужными правами.
 Уточните путь node, установите units в /etc/systemd/system, выполните daemon-reload и
 systemctl enable --now beget-acme.timer. Не запускайте одновременно timer и постоянный run.
 --once не ждёт следующей попытки: RENEW_RETRY_DEFERRED возвращает ненулевой код,
@@ -109,10 +111,14 @@ SQLite встроен в используемую версию Node.js; отде
 
 ## Пользователь контейнера и права
 
-USER в образе задаёт UID/GID 10001:10001 по умолчанию. Compose переопределяет его через
-APP_UID/APP_GID без пересборки образа. Права bind-каталогов задаются на хосте: chown из
-Dockerfile не меняет владельца подключённого каталога. Файлы secrets также должны быть
+Образ `0.2.1` и Compose по умолчанию используют `0:0` (root). Для non-root задайте оба
+`APP_UID`/`APP_GID` без пересборки образа. При прямом `docker run` используйте `--user`; эти env-переменные читает только Compose.
+Права bind-каталогов задаются на хосте; автоматического chown нет. Файлы secrets также должны быть
 читаемы выбранным UID/GID; Compose не исправляет владельца файловых секретов.
+Создание отсутствующих каталогов включено в Compose, но перед non-root запуском их нужно
+подготовить вручную. Для перехода между пользователями остановите сервис, сохраните резервную
+копию и исправьте владельца существующих данных. Не удаляйте state для смены пользователя.
+[Пошаговая настройка non-root](../../README.md#использование-без-root-non-root).
 Для постоянного staging-сервиса задайте ACME_ENVIRONMENT=staging, чтобы сервис и healthcheck
 проверяли одно окружение. До первого выпуска healthcheck может быть неуспешным.
 

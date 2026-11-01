@@ -52,7 +52,7 @@ async function setup() {
     ACME_EMAIL: 'admin@example.com',
     BEGET_USERNAME: 'user',
     BEGET_PASSWORD: 'secret',
-    ACME_ACCEPT_DNS_REPLACEMENT: 'yes',
+    ACME_ACCEPT_DNS_REPLACEMENT: 'true',
     ACME_STATE_DIR: dir,
     ACME_OUTPUT_DIR: path.join(dir, 'output'),
   });
@@ -397,7 +397,7 @@ test(
             BEGET_PASSWORD: 'test',
             BEGET_USERNAME_FILE: '',
             BEGET_PASSWORD_FILE: '',
-            ACME_ACCEPT_DNS_REPLACEMENT: 'yes',
+            ACME_ACCEPT_DNS_REPLACEMENT: 'true',
             ACME_STATE_DIR: dir,
             ACME_OUTPUT_DIR: path.join(dir, 'output'),
           },

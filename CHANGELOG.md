@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
+- Default new containers to root for simple startup; allow explicit non-root UID/GID overrides without automatic ownership changes.
+- Automatically create missing Compose state/output directories and document non-root preparation and migration separately.
+- Require strict `true`/`false` DNS consent values; reject legacy `yes`/`no` and invalid values.
+- Migration: preserve explicit UID/GID settings for non-root deployments and replace consent `yes` with `true`; saved approvals remain valid.
+- Include disabled DNS replacement consent (`false`) in env templates; explicit `true` or the CLI flag remains required for initial approval.
 - Add an optional Nginx Compose overlay, shared-group configuration and in-container certificate watcher.
 - Document setup in English and Russian; test actual TLS reload, retry and process shutdown behavior with disposable containers.
 
